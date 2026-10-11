@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGODB_URI")
+}
+
+model Portfolio {
+  id        String              @id @default(auto()) @map("_id") @db.ObjectId
+  name      String              @default("Danh mục chính")
+  capital   Float               @default(0)
+  currency  String              @default("VND")
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  holdings  Holding[]
+  snapshots PortfolioSnapshot[]
+}
+
+model Holding {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  ticker       String
+  name         String
+  exchange     String
+  quantity     Int
+  averagePrice Float
+  currency     String    @default("VND")
+  portfolioId  String    @db.ObjectId
+  portfolio    Portfolio @relation(fields: [portfolioId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([portfolioId, ticker, exchange])
+}
+
+model PortfolioSnapshot {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  portfolioId      String    @db.ObjectId
+  portfolio        Portfolio @relation(fields: [portfolioId], references: [id])
+  capturedAt       DateTime  @default(now())
+  totalValueVnd    Float
+  totalValueUsd    Float?
+  unrealizedPnlVnd Float?
+  unrealizedPnlUsd Float?
+  priceSource      String?
+  note             String?
+}
