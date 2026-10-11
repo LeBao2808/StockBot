@@ -16,6 +16,12 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## StockMate MCP
+
+The assistant calls the `compare_portfolio_holding` MCP tool for questions that compare a saved position with its current market value. The MCP server is also available at `http://localhost:3000/api/mcp` using Streamable HTTP.
+
+Set a long random `STOCKMATE_MCP_TOKEN` in `.env` before connecting an external MCP client. Send it as `Authorization: Bearer <token>`. The tool accepts `{ "symbol": "AAPL" }` and reads the saved holding from MongoDB, then fetches the current quote from Finnhub. Keep the endpoint private and do not share the token.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

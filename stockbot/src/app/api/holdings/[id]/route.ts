@@ -15,7 +15,7 @@ export async function PATCH(request: Request, { params }: Context) {
     return NextResponse.json({ error: "Dữ liệu gửi lên không hợp lệ." }, { status: 400 });
   }
 
-  const data: { name?: string; quantity?: number; averagePrice?: number; exchange?: string } = {};
+  const data: { name?: string; quantity?: number; averagePrice?: number; exchange?: string; currency?: string } = {};
   if (body.name !== undefined) {
     if (typeof body.name !== "string" || !body.name.trim()) return NextResponse.json({ error: "Tên cổ phiếu không hợp lệ." }, { status: 400 });
     data.name = body.name.trim();
@@ -33,6 +33,7 @@ export async function PATCH(request: Request, { params }: Context) {
   if (body.exchange !== undefined) {
     if (!isMarket(body.exchange)) return NextResponse.json({ error: "Sàn giao dịch không hợp lệ." }, { status: 400 });
     data.exchange = body.exchange;
+    data.currency = body.exchange === "US" ? "USD" : "VND";
   }
   if (!Object.keys(data).length) return NextResponse.json({ error: "Không có trường nào để cập nhật." }, { status: 400 });
 

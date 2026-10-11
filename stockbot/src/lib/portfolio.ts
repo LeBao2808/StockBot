@@ -9,6 +9,6 @@ export async function getMainPortfolio() {
   });
 }
 
-export function isMarket(value: unknown): value is "HOSE" | "HNX" | "UPCOM" {
-  return value === "HOSE" || value === "HNX" || value === "UPCOM";
+export function isMarket(value: unknown): value is "HOSE" | "HNX" | "UPCOM" | "US" {
+  return value === "HOSE" || value === "HNX" || value === "UPCOM" || value === "US";
 }

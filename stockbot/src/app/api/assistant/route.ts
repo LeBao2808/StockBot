@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { getMainPortfolio } from "@/lib/portfolio";
 import { getFinnhubQuote } from "@/lib/finnhub";
-import { getSsiQuote } from "@/lib/ssi-market";
 import { prisma } from "@/lib/prisma";
+import { callStockMateComparisonTool } from "@/lib/stockmate-mcp";
 
 export const runtime = "nodejs";
+
+const usd = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+const comparisonIntent = (question: string) => /danh\s*muc|lai|loi|lo|gia\s*tri|gia\s*von|da\s*mua|luc\s*mua/i.test(question.normalize("NFD").replace(/\p{Diacritic}/gu, ""));
 
 export async function POST(request: Request) {
   let question: string;
@@ -24,52 +27,50 @@ export async function POST(request: Request) {
     const symbol = requestedSymbols.find((candidate) => knownSymbols.has(candidate)) ?? requestedSymbols[0];
 
     if (symbol) {
-      if (knownSymbols.has(symbol)) {
-        const quote = await getSsiQuote(symbol);
-        if (!quote) return NextResponse.json({ answer: `SSI hiện không có dữ liệu cho mã ${symbol}.`, source: "SSI FastConnect", quotes: [] });
-        const direction = quote.change > 0 ? "tăng" : quote.change < 0 ? "giảm" : "đi ngang";
-        const answer = `${quote.name} (${quote.symbol}${quote.exchange ? ` · ${quote.exchange}` : ""}) đang ${direction} ${Math.abs(quote.changePercent).toFixed(2)}% so với tham chiếu. Giá gần nhất SSI trả về: ${new Intl.NumberFormat("vi-VN").format(quote.price)} VND; khối lượng khớp: ${new Intl.NumberFormat("vi-VN").format(quote.volume)}. Ngày dữ liệu: ${quote.tradingDate}.`;
-        return NextResponse.json({ answer, source: quote.source, fetchedAt: quote.fetchedAt, quotes: [quote] });
+      if (comparisonIntent(question)) {
+        const toolResult = await callStockMateComparisonTool(symbol);
+        return NextResponse.json(toolResult);
       }
 
-      try {
-        const quote = await getFinnhubQuote(symbol);
-        if (quote) {
-          const direction = quote.change > 0 ? "tăng" : quote.change < 0 ? "giảm" : "đi ngang";
-          const answer = `${quote.symbol} đang ${direction} ${Math.abs(quote.changePercent).toFixed(2)}% so với giá đóng cửa trước. Giá gần nhất: ${new Intl.NumberFormat("en-US", { style: "currency", currency: quote.currency }).format(quote.price)}. Dữ liệu từ Finnhub${quote.timestamp ? `, thời điểm ${new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "America/New_York" }).format(new Date(quote.timestamp))} giờ New York` : ""}.`;
-          return NextResponse.json({ answer, source: quote.source, fetchedAt: quote.timestamp, quotes: [quote] });
-        }
-      } catch (error) {
-        if (!(error instanceof Error) || !error.message.startsWith("Thiếu FINNHUB_API_KEY")) throw error;
+      const quote = await getFinnhubQuote(symbol);
+      if (!quote) {
+        return NextResponse.json({ answer: `Finnhub hiện chưa có báo giá cho mã ${symbol}. StockMate hiện tra cứu giá bằng Finnhub.`, source: "Finnhub", quotes: [] });
       }
 
-      try {
-        const quote = await getSsiQuote(symbol);
-        if (quote) {
-          const direction = quote.change > 0 ? "tăng" : quote.change < 0 ? "giảm" : "đi ngang";
-          const answer = `${quote.name} (${quote.symbol}${quote.exchange ? ` · ${quote.exchange}` : ""}) đang ${direction} ${quote.changePercent.toFixed(2)}% so với tham chiếu. Giá gần nhất: ${new Intl.NumberFormat("vi-VN").format(quote.price)} VND. Ngày dữ liệu: ${quote.tradingDate}.`;
-          return NextResponse.json({ answer, source: quote.source, fetchedAt: quote.fetchedAt, quotes: [quote] });
-        }
-      } catch {
-        // Return the provider-independent response below when neither provider recognizes the symbol.
-      }
-      return NextResponse.json({ answer: `Chưa tìm thấy báo giá cho mã ${symbol} trên Finnhub hoặc SSI.`, source: "Finnhub + SSI", quotes: [] });
+      const direction = quote.change > 0 ? "tăng" : quote.change < 0 ? "giảm" : "đi ngang";
+      const movement = `${quote.symbol} đang ${direction} ${Math.abs(quote.changePercent).toFixed(2)}% so với giá đóng cửa trước. Giá gần nhất: ${new Intl.NumberFormat("en-US", { style: "currency", currency: quote.currency }).format(quote.price)}.`;
+      const time = quote.timestamp
+        ? ` Dữ liệu lúc ${new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "America/New_York" }).format(new Date(quote.timestamp))} giờ New York.`
+        : "";
+
+      return NextResponse.json({ answer: `${movement}${time} Nguồn: Finnhub.`, source: quote.source, fetchedAt: quote.timestamp, quotes: [quote] });
     }
 
     if (!holdings.length) {
-      return NextResponse.json({ answer: "Danh mục hiện chưa có mã nào. Hãy thêm cổ phiếu hoặc hỏi trực tiếp một mã như FPT để tra cứu thị trường.", source: "Danh mục Stockmate", quotes: [] });
+      return NextResponse.json({ answer: "Danh mục hiện chưa có mã nào. Hãy thêm mã cổ phiếu Mỹ hoặc hỏi trực tiếp một mã như AAPL để tra cứu Finnhub.", source: "Finnhub", quotes: [] });
     }
 
     const results = await Promise.all(holdings.map(async (holding) => {
-      try { return await getSsiQuote(holding.ticker); }
-      catch { return null; }
+      try {
+        const quote = await getFinnhubQuote(holding.ticker);
+        return quote ? { holding, quote } : null;
+      } catch {
+        return null;
+      }
     }));
-    const quotes = results.filter((quote): quote is NonNullable<typeof quote> => quote !== null);
-    const lines = quotes.map((quote) => `${quote.symbol}: ${quote.price} (${quote.changePercent >= 0 ? "+" : ""}${quote.changePercent.toFixed(2)}%)`).join(" · ");
-    return NextResponse.json({ answer: quotes.length ? `Giá thị trường SSI trả về cho danh mục: ${lines}. Dữ liệu theo phiên ${quotes[0].tradingDate}; đây chưa phải tính toán lãi/lỗ theo giá vốn.` : "Chưa lấy được dữ liệu giá từ SSI cho các mã trong danh mục.", source: "SSI FastConnect", fetchedAt: new Date().toISOString(), quotes });
+    const available = results.filter((item): item is NonNullable<typeof item> => item !== null);
+    const lines = available.map(({ holding, quote }) => {
+      if (holding.exchange !== "US" || holding.currency !== "USD") return `${quote.symbol}: ${usd(quote.price)} (Finnhub)`;
+      const current = holding.quantity * quote.price;
+      const pnl = current - holding.quantity * holding.averagePrice;
+      return `${quote.symbol}: giá trị ${usd(current)}, lãi/lỗ tạm tính ${pnl >= 0 ? "+" : "−"}${usd(Math.abs(pnl))}`;
+    }).join(" · ");
+    const answer = available.length
+      ? `Giá trị danh mục theo dữ liệu Finnhub: ${lines}. Các mã không được Finnhub hỗ trợ có thể không xuất hiện.`
+      : "Finnhub chưa trả được giá cho các mã trong danh mục. Hãy kiểm tra mã cổ phiếu hoặc API key Finnhub.";
+    return NextResponse.json({ answer, source: "Finnhub", fetchedAt: new Date().toISOString(), quotes: available.map(({ quote }) => quote) });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Không lấy được dữ liệu thị trường.";
-    const status = message.startsWith("Thiếu SSI_") ? 503 : 502;
-    return NextResponse.json({ error: message }, { status });
+    const message = error instanceof Error ? error.message : "Không lấy được dữ liệu thị trường từ Finnhub.";
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }

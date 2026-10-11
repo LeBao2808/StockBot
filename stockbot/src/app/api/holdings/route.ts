@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   try {
     const portfolio = await getMainPortfolio();
     const holding = await prisma.holding.create({
-      data: { ticker, name, exchange, quantity, averagePrice, currency: "VND", portfolioId: portfolio.id },
+      data: { ticker, name, exchange, quantity, averagePrice, currency: exchange === "US" ? "USD" : "VND", portfolioId: portfolio.id },
     });
     return NextResponse.json({ holding }, { status: 201 });
   } catch (error) {
