@@ -18,7 +18,9 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## StockMate MCP
 
-The assistant calls the `compare_portfolio_holding` MCP tool for questions that compare a saved position with its current market value. The MCP server is also available at `http://localhost:3000/api/mcp` using Streamable HTTP.
+The assistant uses the OpenAI Responses API for natural Vietnamese replies and tool selection. It can choose the `compare_portfolio_holding`, `get_stock_quote`, or `summarize_portfolio` capability; the application executes those calls through its MCP client. Configure `OPENAI_API_KEY` and optionally `OPENAI_MODEL` in `.env` to enable the LLM.
+
+The MCP server is also available at `http://localhost:3000/api/mcp` using Streamable HTTP.
 
 Set a long random `STOCKMATE_MCP_TOKEN` in `.env` before connecting an external MCP client. Send it as `Authorization: Bearer <token>`. The tool accepts `{ "symbol": "AAPL" }` and reads the saved holding from MongoDB, then fetches the current quote from Finnhub. Keep the endpoint private and do not share the token.
 

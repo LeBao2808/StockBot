@@ -1,76 +1,127 @@
 import { NextResponse } from "next/server";
-import { getMainPortfolio } from "@/lib/portfolio";
-import { getFinnhubQuote } from "@/lib/finnhub";
-import { prisma } from "@/lib/prisma";
-import { callStockMateComparisonTool } from "@/lib/stockmate-mcp";
+import { callStockMateTool, type HoldingComparison, type StockMateToolName, type StockMateToolOutput } from "@/lib/stockmate-mcp";
 
 export const runtime = "nodejs";
 
-const usd = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-const comparisonIntent = (question: string) => /danh\s*muc|lai|loi|lo|gia\s*tri|gia\s*von|da\s*mua|luc\s*mua/i.test(question.normalize("NFD").replace(/\p{Diacritic}/gu, ""));
+const instructions = `You are StockMate, a friendly Vietnamese stock portfolio assistant. Speak naturally, clearly, and warmly, with light empathy; avoid sounding theatrical or overly sentimental. Answer in Vietnamese unless the user writes in another language. Keep answers concise and easy to understand. For current market prices, portfolio positions, cost basis, or profit/loss, use the relevant tool instead of guessing. Never invent prices or holdings. Explain when currencies do not match. Market data and portfolio calculations are informational, not a recommendation to buy or sell. Do not claim to have executed an action unless a tool did it.`;
+
+const tools = [
+  {
+    name: "compare_portfolio_holding",
+    description: "Compare a saved position with its current Finnhub quote. Use when the user asks about their cost basis, position value, or profit/loss for a ticker.",
+    parameters: {
+      type: "OBJECT",
+      properties: { symbol: { type: "STRING", description: "Ticker symbol such as AAPL" } },
+      required: ["symbol"],
+    },
+  },
+  {
+    name: "get_stock_quote",
+    description: "Get the latest Finnhub quote for a US stock. Use when the user asks for a stock's current price or market move without asking for their portfolio position.",
+    parameters: {
+      type: "OBJECT",
+      properties: { symbol: { type: "STRING", description: "Ticker symbol such as AAPL" } },
+      required: ["symbol"],
+    },
+  },
+  {
+    name: "summarize_portfolio",
+    description: "Read and summarize the user's saved portfolio. Use when they ask for an overview or summary of their holdings.",
+    parameters: { type: "OBJECT", properties: {}, required: [] },
+  },
+];
+
+type ChatTurn = { role: "user" | "assistant"; content: string };
+type GeminiPart = { text?: string; functionCall?: { name: string; args?: Record<string, unknown>; id?: string } };
+type GeminiContent = { role: "user" | "model"; parts: GeminiPart[] };
+type GeminiResponse = { candidates?: Array<{ content?: GeminiContent }> ; error?: { message?: string } };
+
+function readHistory(value: unknown): ChatTurn[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(-8).flatMap((turn): ChatTurn[] => {
+    if (!turn || typeof turn !== "object") return [];
+    const candidate = turn as Record<string, unknown>;
+    if ((candidate.role !== "user" && candidate.role !== "assistant") || typeof candidate.content !== "string") return [];
+    return [{ role: candidate.role, content: candidate.content.slice(0, 1000) }];
+  });
+}
+
+async function generateGemini(contents: GeminiContent[], apiKey: string, model: string): Promise<GeminiContent> {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: instructions }] },
+      contents,
+      tools: [{ functionDeclarations: tools }],
+    }),
+    cache: "no-store",
+  });
+  const data = await response.json() as GeminiResponse;
+  if (!response.ok) throw new Error(data.error?.message || `Gemini API trả về lỗi HTTP ${response.status}.`);
+  const content = data.candidates?.[0]?.content;
+  if (!content) throw new Error("Gemini không trả về nội dung. Hãy kiểm tra hạn mức hoặc quyền truy cập model.");
+  return content;
+}
 
 export async function POST(request: Request) {
   let question: string;
+  let history: ChatTurn[];
   try {
     const body = await request.json();
     question = typeof body.question === "string" ? body.question.trim() : "";
+    history = readHistory(body.history);
   } catch {
     return NextResponse.json({ error: "Câu hỏi không hợp lệ." }, { status: 400 });
   }
   if (!question || question.length > 500) return NextResponse.json({ error: "Câu hỏi cần có từ 1 đến 500 ký tự." }, { status: 400 });
 
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return NextResponse.json({ error: "Thiếu GEMINI_API_KEY trong .env. Hãy thêm API key để bật trợ lý AI." }, { status: 503 });
+
   try {
-    const portfolio = await getMainPortfolio();
-    const holdings = await prisma.holding.findMany({ where: { portfolioId: portfolio.id }, orderBy: { ticker: "asc" } });
-    const knownSymbols = new Set(holdings.map((holding) => holding.ticker.toUpperCase()));
-    const requestedSymbols = [...question.matchAll(/\b[A-Z][A-Z0-9.-]{1,11}\b/g)].map((match) => match[0]);
-    const symbol = requestedSymbols.find((candidate) => knownSymbols.has(candidate)) ?? requestedSymbols[0];
+    const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+    const contents: GeminiContent[] = [
+      ...history.map((turn) => ({ role: turn.role === "assistant" ? "model" as const : "user" as const, parts: [{ text: turn.content }] })),
+      { role: "user", parts: [{ text: question }] },
+    ];
 
-    if (symbol) {
-      if (comparisonIntent(question)) {
-        const toolResult = await callStockMateComparisonTool(symbol);
-        return NextResponse.json(toolResult);
+    let content = await generateGemini(contents, apiKey, model);
+    let comparison: HoldingComparison | undefined;
+    let fetchedAt: string | null | undefined;
+    let source = "Gemini";
+
+    for (let round = 0; round < 3; round += 1) {
+      const calls = content.parts.filter((part) => part.functionCall?.name);
+      if (!calls.length) break;
+      contents.push(content);
+      const functionResponses: GeminiPart[] = [];
+
+      for (const part of calls) {
+        const call = part.functionCall!;
+        let toolResult: StockMateToolOutput;
+        try {
+          toolResult = await callStockMateTool(call.name as StockMateToolName, (call.args || {}) as Record<string, string>);
+        } catch (error) {
+          toolResult = {
+            answer: error instanceof Error ? error.message : "StockMate chưa lấy được dữ liệu cho câu hỏi này.",
+            source: "MCP + Finnhub",
+          };
+        }
+        if (toolResult.comparison) comparison = toolResult.comparison;
+        if (toolResult.fetchedAt) fetchedAt = toolResult.fetchedAt;
+        source = "Gemini + MCP + Finnhub";
+        functionResponses.push({ functionResponse: { name: call.name, ...(call.id ? { id: call.id } : {}), response: toolResult as unknown as Record<string, unknown> } } as GeminiPart);
       }
 
-      const quote = await getFinnhubQuote(symbol);
-      if (!quote) {
-        return NextResponse.json({ answer: `Finnhub hiện chưa có báo giá cho mã ${symbol}. StockMate hiện tra cứu giá bằng Finnhub.`, source: "Finnhub", quotes: [] });
-      }
-
-      const direction = quote.change > 0 ? "tăng" : quote.change < 0 ? "giảm" : "đi ngang";
-      const movement = `${quote.symbol} đang ${direction} ${Math.abs(quote.changePercent).toFixed(2)}% so với giá đóng cửa trước. Giá gần nhất: ${new Intl.NumberFormat("en-US", { style: "currency", currency: quote.currency }).format(quote.price)}.`;
-      const time = quote.timestamp
-        ? ` Dữ liệu lúc ${new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "America/New_York" }).format(new Date(quote.timestamp))} giờ New York.`
-        : "";
-
-      return NextResponse.json({ answer: `${movement}${time} Nguồn: Finnhub.`, source: quote.source, fetchedAt: quote.timestamp, quotes: [quote] });
+      contents.push({ role: "user", parts: functionResponses });
+      content = await generateGemini(contents, apiKey, model);
     }
 
-    if (!holdings.length) {
-      return NextResponse.json({ answer: "Danh mục hiện chưa có mã nào. Hãy thêm mã cổ phiếu Mỹ hoặc hỏi trực tiếp một mã như AAPL để tra cứu Finnhub.", source: "Finnhub", quotes: [] });
-    }
-
-    const results = await Promise.all(holdings.map(async (holding) => {
-      try {
-        const quote = await getFinnhubQuote(holding.ticker);
-        return quote ? { holding, quote } : null;
-      } catch {
-        return null;
-      }
-    }));
-    const available = results.filter((item): item is NonNullable<typeof item> => item !== null);
-    const lines = available.map(({ holding, quote }) => {
-      if (holding.exchange !== "US" || holding.currency !== "USD") return `${quote.symbol}: ${usd(quote.price)} (Finnhub)`;
-      const current = holding.quantity * quote.price;
-      const pnl = current - holding.quantity * holding.averagePrice;
-      return `${quote.symbol}: giá trị ${usd(current)}, lãi/lỗ tạm tính ${pnl >= 0 ? "+" : "−"}${usd(Math.abs(pnl))}`;
-    }).join(" · ");
-    const answer = available.length
-      ? `Giá trị danh mục theo dữ liệu Finnhub: ${lines}. Các mã không được Finnhub hỗ trợ có thể không xuất hiện.`
-      : "Finnhub chưa trả được giá cho các mã trong danh mục. Hãy kiểm tra mã cổ phiếu hoặc API key Finnhub.";
-    return NextResponse.json({ answer, source: "Finnhub", fetchedAt: new Date().toISOString(), quotes: available.map(({ quote }) => quote) });
+    const answer = content.parts.map((part) => part.text || "").join("\n").trim() || "Mình chưa tạo được câu trả lời. Bạn thử hỏi lại theo cách khác nhé.";
+    return NextResponse.json({ answer, source, fetchedAt, ...(comparison ? { comparison } : {}) });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Không lấy được dữ liệu thị trường từ Finnhub.";
+    const message = error instanceof Error ? error.message : "Trợ lý AI chưa phản hồi được.";
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }
