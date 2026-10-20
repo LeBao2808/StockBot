@@ -3,12 +3,12 @@ import { callStockMateTool, type HoldingComparison, type StockMateToolName, type
 
 export const runtime = "nodejs";
 
-const instructions = `You are StockMate, a friendly Vietnamese stock portfolio assistant. Speak naturally, clearly, and warmly, with light empathy; avoid sounding theatrical or overly sentimental. Answer in Vietnamese unless the user writes in another language. Keep answers concise and easy to understand. For current market prices, portfolio positions, cost basis, or profit/loss, use the relevant tool instead of guessing. Never invent prices or holdings. Explain when currencies do not match. Market data and portfolio calculations are informational, not a recommendation to buy or sell. Do not claim to have executed an action unless a tool did it.`;
+const instructions = `You are StockMate, a friendly Vietnamese stock portfolio assistant. Speak naturally, clearly, and warmly, with light empathy; avoid sounding theatrical or overly sentimental. Answer in Vietnamese unless the user writes in another language. For current market prices, portfolio positions, cost basis, profit/loss, or DNSE cash balance, use the relevant tool instead of guessing. Never invent prices, balances, or holdings. When reporting DNSE balances, keep the returned balance categories separate, mask account numbers, and do not present buying power or margin as cash available. Market data and portfolio calculations are informational, not a recommendation to buy or sell. Do not claim to have executed an action unless a tool did it.`;
 
 const tools = [
   {
     name: "compare_portfolio_holding",
-    description: "Compare a saved position with its current Finnhub quote. Use when the user asks about their cost basis, position value, or profit/loss for a ticker.",
+    description: "Compare a saved position with its current quote. Use when the user asks about their cost basis, position value, or profit/loss for a ticker. The MCP tool selects DNSE for Vietnamese VND holdings and Finnhub for US USD holdings.",
     parameters: {
       type: "OBJECT",
       properties: { symbol: { type: "STRING", description: "Ticker symbol such as AAPL" } },
@@ -17,16 +17,24 @@ const tools = [
   },
   {
     name: "get_stock_quote",
-    description: "Get the latest Finnhub quote for a US stock. Use when the user asks for a stock's current price or market move without asking for their portfolio position.",
+    description: "Get a stock's latest price when the user asks for a quote without asking about their portfolio. Choose market=VN for Vietnamese tickers on HOSE/HNX/UPCoM (e.g. FPT, VNM, HPG); choose market=US for US tickers (e.g. AAPL, MSFT). Vietnamese quotes use DNSE; US quotes use Finnhub.",
     parameters: {
       type: "OBJECT",
-      properties: { symbol: { type: "STRING", description: "Ticker symbol such as AAPL" } },
-      required: ["symbol"],
+      properties: {
+        symbol: { type: "STRING", description: "Ticker symbol such as FPT or AAPL" },
+        market: { type: "STRING", enum: ["VN", "US"], description: "VN for Vietnamese exchanges; US for US exchanges" },
+      },
+      required: ["symbol", "market"],
     },
   },
   {
     name: "summarize_portfolio",
-    description: "Read and summarize the user's saved portfolio. Use when they ask for an overview or summary of their holdings.",
+    description: "Read and summarize the user's saved portfolio. Use when they ask for an overview or summary of their holdings. Vietnamese holdings use DNSE; US holdings use Finnhub.",
+    parameters: { type: "OBJECT", properties: {}, required: [] },
+  },
+  {
+    name: "get_dnse_cash_balance",
+    description: "Read the user's actual DNSE sub-account balance using DNSE OpenAPI. Use when they ask how much cash/money remains in their brokerage wallet or for account cash balance. This is read-only. Keep DNSE balance categories separate and do not equate buying power with cash.",
     parameters: { type: "OBJECT", properties: {}, required: [] },
   },
 ];
@@ -105,12 +113,16 @@ export async function POST(request: Request) {
         } catch (error) {
           toolResult = {
             answer: error instanceof Error ? error.message : "StockMate chưa lấy được dữ liệu cho câu hỏi này.",
-            source: "MCP + Finnhub",
+            source: "MCP + DNSE",
           };
+        }
+        // Keep personal brokerage balances inside StockMate; don't send the MCP result back to Gemini for paraphrasing.
+        if (call.name === "get_dnse_cash_balance") {
+          return NextResponse.json({ answer: toolResult.answer, source: "MCP + DNSE", fetchedAt: toolResult.fetchedAt });
         }
         if (toolResult.comparison) comparison = toolResult.comparison;
         if (toolResult.fetchedAt) fetchedAt = toolResult.fetchedAt;
-        source = "Gemini + MCP + Finnhub";
+        source = toolResult.source === "MCP + DNSE" ? "Gemini + MCP + DNSE" : "Gemini + MCP + Finnhub";
         functionResponses.push({ functionResponse: { name: call.name, ...(call.id ? { id: call.id } : {}), response: toolResult as unknown as Record<string, unknown> } } as GeminiPart);
       }
 

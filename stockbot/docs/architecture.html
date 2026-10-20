@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockBot Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #bf4520;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1280px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    svg { width: 100%; min-width: 1280px; display: block; }
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · StockBot</p>
+    <h1>One tool layer, two doors in</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="architecture-stockbot-title architecture-stockbot-desc">
+        <title id="architecture-stockbot-title">StockBot architecture</title>
+        <desc id="architecture-stockbot-desc">The browser UI calls REST routes for portfolio data and the assistant route for chat; the assistant loops with Gemini and calls StockMate MCP tools in memory, external MCP clients reach the same tools over /api/mcp, and both REST routes and tools read DNSE, Finnhub and MongoDB.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <!-- ===== Arrows first (behind boxes) ===== -->
+
+        <!-- Browser → REST routes (leaves top edge, enters left edge) -->
+        <path d="M 120,304 V 136 Q 120,128 128,128 H 704" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <!-- Browser → Assistant (leaves bottom edge, enters left edge) -->
+        <path d="M 120,368 V 536 Q 120,544 128,544 H 264" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+
+        <!-- REST routes fan down: DNSE, Finnhub, MongoDB -->
+        <path d="M 748,160 V 224 Q 748,232 740,232 H 592 Q 584,232 584,240 V 304" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <line x1="792" y1="160" x2="792" y2="304" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <path d="M 836,160 V 224 Q 836,232 844,232 H 992 Q 1000,232 1000,240 V 304" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- StockMate MCP fan up: DNSE, Finnhub, MongoDB -->
+        <path d="M 748,512 V 448 Q 748,440 740,440 H 592 Q 584,440 584,432 V 368" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <line x1="792" y1="512" x2="792" y2="368" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <path d="M 836,512 V 448 Q 836,440 844,440 H 992 Q 1000,440 1000,432 V 368" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- Assistant ⇄ Gemini (prompt up, function calls back) -->
+        <line x1="328" y1="512" x2="328" y2="368" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <line x1="360" y1="368" x2="360" y2="512" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+        <!-- Assistant → StockMate MCP (primary path) -->
+        <line x1="424" y1="544" x2="704" y2="544" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+
+        <!-- External MCP client → StockMate MCP -->
+        <line x1="1088" y1="544" x2="880" y2="544" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+
+        <!-- ===== Arrow labels ===== -->
+        <rect x="380" y="108" width="72" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="416" y="117" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">FETCH /API/*</text>
+
+        <rect x="176" y="524" width="40" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="196" y="533" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">CHAT</text>
+
+        <rect x="636" y="212" width="60" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="666" y="221" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">VN QUOTE</text>
+
+        <rect x="724" y="256" width="60" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="754" y="265" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">US QUOTE</text>
+
+        <rect x="892" y="212" width="52" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="918" y="221" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PRISMA</text>
+
+        <rect x="272" y="420" width="48" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="296" y="429" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PROMPT</text>
+
+        <rect x="368" y="452" width="80" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="408" y="461" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">FUNCTION CALL</text>
+
+        <rect x="524" y="524" width="80" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="564" y="533" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">IN-MEMORY MCP</text>
+
+        <rect x="952" y="524" width="64" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="984" y="533" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">/API/MCP</text>
+
+        <!-- ===== Nodes ===== -->
+
+        <!-- Browser UI (input) -->
+        <rect x="48" y="304" width="144" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="48" y="304" width="144" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+        <rect x="56" y="312" width="24" height="12" rx="2" fill="transparent" stroke="rgba(90,101,128,0.40)" stroke-width="0.8"/>
+        <text x="68" y="321" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">UI</text>
+        <text x="120" y="340" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Browser UI</text>
+        <text x="120" y="356" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">app/page.tsx</text>
+
+        <!-- REST routes (backend) -->
+        <rect x="704" y="96" width="176" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="704" y="96" width="176" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="712" y="104" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="726" y="113" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">API</text>
+        <text x="792" y="132" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">REST routes</text>
+        <text x="792" y="148" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">portfolio · holdings · market</text>
+
+        <!-- Gemini (external) -->
+        <rect x="272" y="304" width="144" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="272" y="304" width="144" height="64" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="280" y="312" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="294" y="321" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">LLM</text>
+        <text x="344" y="340" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Gemini API</text>
+        <text x="344" y="356" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">generateContent</text>
+
+        <!-- DNSE (external) -->
+        <rect x="512" y="304" width="144" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="512" y="304" width="144" height="64" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="520" y="312" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="534" y="321" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+        <text x="584" y="340" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">DNSE Lightspeed</text>
+        <text x="584" y="356" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">VN quotes · balance</text>
+
+        <!-- Finnhub (external) -->
+        <rect x="720" y="304" width="144" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="720" y="304" width="144" height="64" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="728" y="312" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="742" y="321" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+        <text x="792" y="340" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Finnhub</text>
+        <text x="792" y="356" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">US quotes</text>
+
+        <!-- MongoDB (store) -->
+        <rect x="928" y="304" width="144" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="928" y="304" width="144" height="64" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="936" y="312" width="24" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="948" y="321" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DB</text>
+        <text x="1000" y="340" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">MongoDB</text>
+        <text x="1000" y="356" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">portfolio · holdings</text>
+
+        <!-- Assistant (backend) -->
+        <rect x="264" y="512" width="160" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="264" y="512" width="160" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="272" y="520" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="286" y="529" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">API</text>
+        <text x="344" y="548" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Assistant</text>
+        <text x="344" y="564" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">/api/assistant</text>
+
+        <!-- StockMate MCP (focal) -->
+        <rect x="704" y="512" width="176" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="704" y="512" width="176" height="64" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <rect x="712" y="520" width="28" height="12" rx="2" fill="transparent" stroke="rgba(191,69,32,0.50)" stroke-width="0.8"/>
+        <text x="726" y="529" fill="#bf4520" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MCP</text>
+        <text x="792" y="548" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">StockMate MCP</text>
+        <text x="792" y="564" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">4 tools · stockmate-mcp.ts</text>
+
+        <!-- External MCP client (input) -->
+        <rect x="1088" y="512" width="144" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="1088" y="512" width="144" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+        <rect x="1096" y="520" width="28" height="12" rx="2" fill="transparent" stroke="rgba(90,101,128,0.40)" stroke-width="0.8"/>
+        <text x="1110" y="529" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+        <text x="1160" y="548" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">MCP client</text>
+        <text x="1160" y="564" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">bearer token</text>
+
+        <!-- ===== Legend strip ===== -->
+        <line x1="48" y1="624" x2="1232" y2="624" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <text x="48" y="644" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+        <rect x="48" y="660" width="14" height="10" rx="2" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <text x="68" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Shared tool layer</text>
+
+        <rect x="196" y="660" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="216" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Next.js route</text>
+
+        <rect x="324" y="660" width="14" height="10" rx="2" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <text x="344" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Database</text>
+
+        <rect x="432" y="660" width="14" height="10" rx="2" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <text x="452" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">External API</text>
+
+        <rect x="556" y="660" width="14" height="10" rx="2" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+        <text x="576" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Client</text>
+
+        <line x1="652" y1="665" x2="680" y2="665" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <text x="688" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">HTTP call</text>
+
+        <line x1="784" y1="665" x2="812" y2="665" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <text x="820" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Tool call path</text>
+
+        <line x1="932" y1="665" x2="960" y2="665" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <text x="968" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Prisma query</text>
+
+        <line x1="1072" y1="665" x2="1100" y2="665" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <text x="1108" y="668" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Response</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

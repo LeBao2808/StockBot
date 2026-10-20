@@ -2,6 +2,7 @@ import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod/v4";
 import { getFinnhubQuote } from "@/lib/finnhub";
+import { getDnseAccountBalances, getDnseQuote } from "@/lib/dnse-market";
 import { getMainPortfolio } from "@/lib/portfolio";
 import { prisma } from "@/lib/prisma";
 
@@ -22,54 +23,61 @@ export type ComparisonToolResult = {
   answer: string;
   comparison?: HoldingComparison;
   fetchedAt?: string | null;
-  source: "MCP + Finnhub";
+  source: "MCP + Finnhub" | "MCP + DNSE";
 };
 
-export type StockMateToolName = "compare_portfolio_holding" | "get_stock_quote" | "summarize_portfolio";
-export type StockMateToolOutput = ComparisonToolResult & { quote?: unknown; holdings?: unknown[] };
+export type StockMateToolName = "compare_portfolio_holding" | "get_stock_quote" | "summarize_portfolio" | "get_dnse_cash_balance";
+export type StockMateToolOutput = ComparisonToolResult & { quote?: unknown; holdings?: unknown[]; balances?: unknown[] };
 
-const source = "MCP + Finnhub" as const;
+const sourceFor = (market: "VN" | "US") => market === "VN" ? "MCP + DNSE" as const : "MCP + Finnhub" as const;
 const formatUsd = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-const timeText = (timestamp: string | null) => timestamp
-  ? ` Dữ liệu lúc ${new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "America/New_York" }).format(new Date(timestamp))} giờ New York.`
+const formatVnd = (value: number) => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value) + " VND";
+const timeText = (timestamp: string | null, market: "VN" | "US") => timestamp
+  ? ` Dữ liệu lúc ${new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", ...(market === "US" ? { timeZone: "America/New_York" } : { timeZone: "Asia/Ho_Chi_Minh" }) }).format(new Date(timestamp))}${market === "US" ? " giờ New York." : " giờ Việt Nam."}`
   : "";
 
 async function compareHolding(symbolInput: string): Promise<StockMateToolOutput> {
   const symbol = symbolInput.trim().toUpperCase();
   const portfolio = await getMainPortfolio();
   const holding = await prisma.holding.findFirst({ where: { portfolioId: portfolio.id, ticker: symbol } });
-  if (!holding) return { answer: `Bạn chưa thêm ${symbol} vào danh mục nên mình chưa thể so sánh giá mua với giá hiện tại.`, source };
+  if (!holding) return { answer: `Bạn chưa thêm ${symbol} vào danh mục nên mình chưa thể so sánh giá mua với giá hiện tại.`, source: "MCP + DNSE" };
 
-  const quote = await getFinnhubQuote(symbol);
-  if (!quote) return { answer: `Finnhub hiện chưa có giá cho ${symbol}, nên mình chưa thể tính giá trị danh mục.`, source };
-  if (holding.currency !== "USD") {
-    return {
-      answer: `${symbol} đang được lưu với giá vốn bằng ${holding.currency}, trong khi Finnhub trả giá bằng USD. Mình không cộng trừ khác đơn vị tiền tệ. Hãy sửa mã sang thị trường Mỹ (USD), rồi hỏi lại.`,
-      comparison: { ticker: symbol, quantity: holding.quantity, currency: holding.currency, averagePrice: holding.averagePrice, currentPrice: quote.price, currencyMismatch: true },
-      fetchedAt: quote.timestamp,
-      source,
-    };
-  }
+  const market = holding.currency === "USD" ? "US" : "VN";
+  const source = sourceFor(market);
+  const quote = market === "VN" ? await getDnseQuote(symbol) : await getFinnhubQuote(symbol);
+  if (!quote) return { answer: `${source === "MCP + DNSE" ? "DNSE" : "Finnhub"} chưa tìm thấy báo giá cho ${symbol}.`, source };
 
+  const currency = market === "VN" ? "VND" : "USD";
+  const format = market === "VN" ? formatVnd : formatUsd;
   const costBasis = holding.quantity * holding.averagePrice;
   const marketValue = holding.quantity * quote.price;
   const unrealizedPnl = marketValue - costBasis;
   const pnlPercent = costBasis > 0 ? (unrealizedPnl / costBasis) * 100 : 0;
   return {
-    answer: `So sánh khoản đầu tư ${symbol}: vốn mua ${formatUsd(costBasis)}, giá trị hiện tại ${formatUsd(marketValue)}, lãi/lỗ tạm tính ${unrealizedPnl >= 0 ? "+" : "−"}${formatUsd(Math.abs(unrealizedPnl))} (${pnlPercent >= 0 ? "+" : ""}${pnlPercent.toFixed(2)}%).${timeText(quote.timestamp)} Giá thị trường từ Finnhub.`,
-    comparison: { ticker: symbol, quantity: holding.quantity, currency: "USD", averagePrice: holding.averagePrice, currentPrice: quote.price, costBasis, marketValue, unrealizedPnl, pnlPercent, currencyMismatch: false },
+    answer: `So sánh khoản đầu tư ${symbol}: vốn mua ${format(costBasis)}, giá trị hiện tại ${format(marketValue)}, lãi/lỗ tạm tính ${unrealizedPnl >= 0 ? "+" : "−"}${format(Math.abs(unrealizedPnl))} (${pnlPercent >= 0 ? "+" : ""}${pnlPercent.toFixed(2)}%).${timeText(quote.timestamp, market)} Nguồn: ${market === "VN" ? "DNSE" : "Finnhub"}.`,
+    comparison: { ticker: symbol, quantity: holding.quantity, currency, averagePrice: holding.averagePrice, currentPrice: quote.price, costBasis, marketValue, unrealizedPnl, pnlPercent, currencyMismatch: false },
     fetchedAt: quote.timestamp,
     source,
   };
 }
 
-async function getStockQuote(symbolInput: string): Promise<StockMateToolOutput> {
+async function getStockQuote(symbolInput: string, market: "VN" | "US"): Promise<StockMateToolOutput> {
   const symbol = symbolInput.trim().toUpperCase();
-  const quote = await getFinnhubQuote(symbol);
-  if (!quote) return { answer: `Finnhub chưa tìm thấy báo giá cho ${symbol}.`, source };
+  const source = sourceFor(market);
+  const quote = market === "VN" ? await getDnseQuote(symbol) : await getFinnhubQuote(symbol);
+  if (!quote) return { answer: `${market === "VN" ? "DNSE" : "Finnhub"} chưa tìm thấy báo giá cho ${symbol}.`, source };
+  if (market === "VN") {
+    return {
+      answer: `Giá khớp gần nhất của ${symbol}: ${formatVnd(quote.price)}.${timeText(quote.timestamp, market)} Nguồn: DNSE.`,
+      quote,
+      fetchedAt: quote.timestamp,
+      source,
+    };
+  }
+  if (!("change" in quote)) return { answer: `Finnhub chưa trả đủ dữ liệu biến động cho ${symbol}.`, source };
   const direction = quote.change > 0 ? "tăng" : quote.change < 0 ? "giảm" : "đi ngang";
   return {
-    answer: `${symbol} ${direction} ${Math.abs(quote.changePercent).toFixed(2)}% so với giá đóng cửa trước. Giá gần nhất ${formatUsd(quote.price)}.${timeText(quote.timestamp)} Nguồn: Finnhub.`,
+    answer: `${symbol} ${direction} ${Math.abs(quote.changePercent).toFixed(2)}% so với giá đóng cửa trước. Giá gần nhất ${formatUsd(quote.price)}.${timeText(quote.timestamp, market)} Nguồn: Finnhub.`,
     quote,
     fetchedAt: quote.timestamp,
     source,
@@ -79,16 +87,16 @@ async function getStockQuote(symbolInput: string): Promise<StockMateToolOutput> 
 async function summarizePortfolio(): Promise<StockMateToolOutput> {
   const portfolio = await getMainPortfolio();
   const holdings = await prisma.holding.findMany({ where: { portfolioId: portfolio.id }, orderBy: { ticker: "asc" } });
-  if (!holdings.length) return { answer: "Danh mục của bạn chưa có mã cổ phiếu nào.", holdings: [], source };
+  if (!holdings.length) return { answer: "Danh mục của bạn chưa có mã cổ phiếu nào.", holdings: [], source: "MCP + DNSE" };
 
   const rows = await Promise.all(holdings.map(async (holding) => {
     try {
-      const quote = await getFinnhubQuote(holding.ticker);
+      const market = holding.currency === "USD" ? "US" : "VN";
+      const quote = market === "VN" ? await getDnseQuote(holding.ticker) : await getFinnhubQuote(holding.ticker);
       if (!quote) return { ticker: holding.ticker, quantity: holding.quantity, currency: holding.currency, quoteAvailable: false };
-      const compatible = holding.currency === "USD";
-      const costBasis = compatible ? holding.quantity * holding.averagePrice : undefined;
-      const marketValue = compatible ? holding.quantity * quote.price : undefined;
-      const unrealizedPnl = compatible ? marketValue! - costBasis! : undefined;
+      const costBasis = holding.quantity * holding.averagePrice;
+      const marketValue = holding.quantity * quote.price;
+      const unrealizedPnl = marketValue - costBasis;
       return {
         ticker: holding.ticker,
         quantity: holding.quantity,
@@ -96,7 +104,7 @@ async function summarizePortfolio(): Promise<StockMateToolOutput> {
         averagePrice: holding.averagePrice,
         currentPrice: quote.price,
         quoteAvailable: true,
-        ...(compatible ? { costBasis, marketValue, unrealizedPnl } : { currencyMismatch: true }),
+        costBasis, marketValue, unrealizedPnl, source: market === "VN" ? "DNSE" : "Finnhub",
       };
     } catch {
       return { ticker: holding.ticker, quantity: holding.quantity, currency: holding.currency, quoteAvailable: false };
@@ -104,9 +112,28 @@ async function summarizePortfolio(): Promise<StockMateToolOutput> {
   }));
   const available = rows.filter((row) => row.quoteAvailable);
   const answer = available.length
-    ? `Đây là dữ liệu Finnhub cho ${available.length}/${holdings.length} mã trong danh mục. Các con số từng mã được giữ theo đơn vị tiền tệ đã lưu; những mã không khớp USD sẽ không có phép tính lãi/lỗ.`
-    : "Finnhub chưa trả được báo giá cho các mã trong danh mục của bạn.";
-  return { answer, holdings: rows, fetchedAt: new Date().toISOString(), source };
+    ? `Đã lấy được báo giá cho ${available.length}/${holdings.length} mã trong danh mục từ DNSE (mã Việt Nam) và Finnhub (mã Mỹ).`
+    : "Chưa lấy được báo giá cho các mã trong danh mục. Kiểm tra credentials DNSE/Finnhub và thử lại.";
+  return { answer, holdings: rows, fetchedAt: new Date().toISOString(), source: "MCP + DNSE" };
+}
+
+async function getDnseCashBalance(): Promise<StockMateToolOutput> {
+  const rawBalances = await getDnseAccountBalances();
+  const balances = rawBalances.map((account) => ({
+    accountNo: `••••${account.accountNo.slice(-4)}`,
+    sections: account.sections,
+  }));
+  const details = balances.flatMap((account) => account.sections.map((section) => {
+    const maskedAccount = account.accountNo;
+    const amounts = section.amounts
+      .map(({ field, value }) => `${field}: ${formatVnd(value)}`)
+      .join(", ");
+    return `${maskedAccount} · ${section.name}: ${amounts}`;
+  }));
+  const answer = details.length
+    ? `Đã đọc số dư từ DNSE (chỉ đọc). ${details.join("; ")}. Đây là số dư theo từng mục DNSE trả về; không đồng nhất sức mua với tiền mặt khả dụng.`
+    : "DNSE đã phản hồi nhưng không có trường số dư dạng số để hiển thị. Kiểm tra phiên bản API hoặc cấu trúc response DNSE.";
+  return { answer, balances, fetchedAt: new Date().toISOString(), source: "MCP + DNSE" };
 }
 
 function registerToolHandler<TArgs extends Record<string, unknown>>(
@@ -122,17 +149,19 @@ function registerToolHandler<TArgs extends Record<string, unknown>>(
       return { content: [{ type: "text", text: JSON.stringify(result) }] };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Không thể lấy dữ liệu StockMate.";
-      return { content: [{ type: "text", text: JSON.stringify({ answer: message, source }) }], isError: true };
+      return { content: [{ type: "text", text: JSON.stringify({ answer: message, source: "MCP + DNSE" }) }], isError: true };
     }
   });
 }
 
 export function createStockMateMcpServer() {
   const server = new McpServer({ name: "stockmate-portfolio", version: "1.0.0" });
-  const symbolSchema = z.object({ symbol: z.string().min(1).max(12).describe("Mã cổ phiếu, ví dụ AAPL") });
-  registerToolHandler(server, "compare_portfolio_holding", "So sánh một mã đã lưu với giá Finnhub mới nhất, gồm giá vốn, giá trị hiện tại và lãi/lỗ chưa chốt.", symbolSchema, ({ symbol }) => compareHolding(symbol));
-  registerToolHandler(server, "get_stock_quote", "Tra cứu giá cổ phiếu Mỹ mới nhất cùng mức biến động từ Finnhub.", symbolSchema, ({ symbol }) => getStockQuote(symbol));
-  registerToolHandler(server, "summarize_portfolio", "Tóm tắt các mã trong danh mục StockMate và báo giá Finnhub có thể lấy được.", z.object({}), () => summarizePortfolio());
+  const symbolSchema = z.object({ symbol: z.string().min(1).max(12).describe("Mã cổ phiếu, ví dụ FPT") });
+  const quoteSchema = symbolSchema.extend({ market: z.enum(["VN", "US"]).describe("VN cho HOSE/HNX/UPCoM; US cho cổ phiếu Mỹ") });
+  registerToolHandler(server, "compare_portfolio_holding", "So sánh mã đã lưu với giá hiện tại: dùng DNSE cho mã Việt Nam (VND), Finnhub cho mã Mỹ (USD), tính giá vốn, giá trị hiện tại và lãi/lỗ.", symbolSchema, ({ symbol }) => compareHolding(symbol));
+  registerToolHandler(server, "get_stock_quote", "Tra cứu giá cổ phiếu. Chọn market VN cho mã Việt Nam trên HOSE/HNX/UPCoM (DNSE), hoặc US cho mã Mỹ (Finnhub). FPT là mã VN; AAPL là mã US.", quoteSchema, ({ symbol, market }) => getStockQuote(symbol, market));
+  registerToolHandler(server, "summarize_portfolio", "Tóm tắt danh mục và giá từ DNSE cho mã Việt Nam, Finnhub cho mã Mỹ.", z.object({}), () => summarizePortfolio());
+  registerToolHandler(server, "get_dnse_cash_balance", "Đọc số dư tiền và tài sản trong các tiểu khoản DNSE của người dùng. Chỉ dùng khi người dùng hỏi còn bao nhiêu tiền, số dư tài khoản chứng khoán, hoặc tiền trong ví DNSE. Chỉ đọc, không đặt/hủy lệnh. Nêu rõ các mục DNSE trả về và không gọi sức mua là tiền mặt.", z.object({}), () => getDnseCashBalance());
   return server;
 }
 

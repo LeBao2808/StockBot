@@ -50,3 +50,70 @@
 .chat-body{flex:1;overflow-y:auto;padding:17px 15px}.chat-welcome{text-align:center;padding:8px 5px 15px}.chat-welcome-icon{margin:auto;width:37px;height:37px;border-radius:12px;background:#eef6f0;color:#388264;display:grid;place-items:center;font-size:18px}.chat-welcome h3{font-size:14px;margin:10px 0 5px}.chat-welcome p{max-width:250px;margin:auto;color:#87918a;font-size:10px;line-height:1.5}.chat-questions{display:grid;gap:7px}.suggestion-label{font-size:8px;color:#a0a8a2;font-weight:700;letter-spacing:.8px;margin:1px 0 2px}.chat-questions button{height:35px;border:1px solid #e8ede9;background:#fff;border-radius:7px;padding:0 10px;text-align:left;color:#56635a;font-size:10px}.chat-questions button:hover{background:#f5faf6;border-color:#cde2d3}.chat-questions button span{float:right;color:#438467}.chat-message{display:flex;align-items:flex-start;gap:7px;margin-top:13px}.message-avatar{flex-shrink:0;width:23px;height:23px;border-radius:8px;display:grid;place-items:center;background:#eaf5ee;color:#398165;font-size:12px}.chat-message.user{justify-content:flex-end}.chat-message.user .message-avatar{order:2;background:#e9f0eb;color:#49715a}.chat-message p{max-width:84%;margin:0;padding:9px 10px;border-radius:3px 10px 10px 10px;background:#f4f7f4;color:#546057;font-size:10px;line-height:1.55}.chat-message.user p{background:#eaf4ee;color:#315b43;border-radius:10px 3px 10px 10px}.chat-disclaimer{flex-shrink:0;padding:8px 14px;background:#fbfcfb;border-top:1px solid #f0f2f0;color:#87918a;font-size:8px}.chat-disclaimer span{color:#5c9678;margin-right:4px}.chat-composer{position:relative;flex-shrink:0;margin:10px 12px 12px;border:1px solid #dfe7e1;border-radius:9px;padding:9px 42px 22px 10px}.chat-composer:focus-within{border-color:#76aa8b;box-shadow:0 0 0 2px #edf6f0}.chat-composer textarea{width:100%;resize:none;border:0;outline:0;background:transparent;color:#333d36;font-size:10px;line-height:1.45}.chat-composer textarea::placeholder{color:#a1a9a3}.chat-composer>button{position:absolute;right:9px;top:9px;width:27px;height:27px;border:0;border-radius:7px;background:#28795f;color:white;font-size:17px}.chat-composer>button:disabled{background:#e9eeea;color:#aab2ac;cursor:default}.chat-composer small{position:absolute;left:10px;bottom:7px;font-size:7px;color:#a0a8a2}
 @media(max-width:480px){.chat-launcher{right:14px;bottom:14px;height:45px;font-size:11px}.chat-panel{inset:auto 8px 69px;width:auto;height:min(600px,calc(100dvh - 90px));border-radius:14px}.chat-composer{margin-bottom:9px}}
 .chat-message-content{min-width:0;max-width:calc(100% - 30px);flex:1}.chat-message-content>p{max-width:100%}.comparison-table-wrap{max-width:100%;overflow-x:auto;margin-top:8px;border:1px solid #e5ece7;border-radius:8px;background:#fff}.comparison-table{width:100%;min-width:620px;border-collapse:collapse;font-size:9px;text-align:right}.comparison-table th,.comparison-table td{padding:8px 9px;border-bottom:1px solid #edf1ee;white-space:nowrap}.comparison-table th{background:#f5f8f6;color:#718078;font-size:8px;font-weight:700}.comparison-table td{color:#34443a}.comparison-table th:first-child,.comparison-table td:first-child{text-align:left}.comparison-table tbody tr:last-child td{border-bottom:0}.comparison-table td.profit{color:#168265}.comparison-table td.loss{color:#cb4d43}.comparison-table td small{font-size:8px}
+.holdings-panel table{min-width:820px}.pnl-badge{display:inline-flex;min-width:112px;flex-direction:column;align-items:flex-end;gap:3px;padding:6px 9px;border-radius:7px;white-space:nowrap;font-variant-numeric:tabular-nums}.pnl-badge strong{font-size:10px;font-weight:700}.pnl-badge small{font-size:8px;font-weight:650}.pnl-positive{color:#18764f;background:#eaf6ee}.pnl-negative{color:#bd5148;background:#fff0ed}.pnl-pending{color:#7d8981;background:#f2f5f2;font-size:9px}.actions-cell{white-space:nowrap}.row-menu{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:31px;height:29px;margin-left:4px;padding:0 7px;border:1px solid #e7ece8;border-radius:6px;background:#fff;color:#637269;font-size:12px;transition:background .15s,border-color .15s,color .15s}.row-menu:hover{border-color:#cfe2d5;background:#f2f8f4;color:#28795f}.row-menu .action-label{font-size:9px;font-weight:600}.row-menu.delete-menu{color:#b75b52}.row-menu.delete-menu:hover{border-color:#f0d4d0;background:#fff4f2;color:#ae4037}
+.portfolio-summary{gap:12px;margin-bottom:12px}.portfolio-summary .summary-card{height:126px;padding:16px 17px}.portfolio-summary .metric-number{font-size:20px;margin-top:14px;white-space:nowrap}.portfolio-summary .allocation-caption{margin-top:12px}.portfolio-allocation{margin:0 0 14px}.portfolio-allocation .market-panel{min-height:0;padding:15px 18px;display:grid;grid-template-columns:minmax(165px,220px) minmax(0,1fr);align-items:center;column-gap:20px}.portfolio-allocation .panel-heading{grid-column:1;grid-row:1}.portfolio-allocation .panel-heading h2{font-size:12px}.portfolio-allocation .panel-heading p{font-size:10px}.portfolio-allocation .more-button{display:none}.portfolio-allocation .market-content{grid-column:2;grid-row:1;display:flex;align-items:center;gap:16px;margin:0}.portfolio-allocation .donut-wrap{width:74px;height:74px;flex-shrink:0}.portfolio-allocation .donut{width:66px;height:66px}.portfolio-allocation .donut:before{inset:9px}.portfolio-allocation .donut strong{font-size:15px}.portfolio-allocation .market-legend{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.portfolio-allocation .legend-row{min-height:38px;padding:0 10px;border:1px solid #edf1ed;border-radius:7px;background:#fbfcfb;grid-template-columns:8px 1fr auto;gap:6px;font-size:9px}.portfolio-allocation .legend-row strong{font-size:10px}.portfolio-allocation .market-foot{grid-column:1/-1;margin:10px 0 0;padding-top:8px;font-size:9px}.holdings-panel{margin-top:0;overflow:hidden}.holdings-heading{padding:0 20px}.holdings-heading h2{font-size:14px}.holdings-heading p{font-size:10px}.table-toolbar{margin-top:14px;padding:0 20px}.table-scroll{scrollbar-width:thin;scrollbar-color:#d4ded7 transparent}th{height:36px;background:#f7faf7}td{height:57px}.holdings-panel tbody tr:hover{background:#f8fbf8}.table-footer{height:42px}
+@media(max-width:780px){.portfolio-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.portfolio-summary .summary-card{height:118px}.portfolio-allocation .market-panel{grid-template-columns:1fr;row-gap:12px}.portfolio-allocation .panel-heading,.portfolio-allocation .market-content{grid-column:1;grid-row:auto}.portfolio-allocation .market-content{justify-content:flex-start}.portfolio-allocation .market-foot{grid-column:1}}
+@media(max-width:480px){.portfolio-summary{gap:8px}.portfolio-summary .summary-card{height:112px;padding:12px}.portfolio-summary .metric-number{font-size:15px;margin-top:13px}.portfolio-summary .card-label{font-size:7px;letter-spacing:.4px}.portfolio-summary .allocation-caption,.portfolio-summary .cash-caption{font-size:8px}.portfolio-allocation .market-panel{padding:14px 12px}.portfolio-allocation .market-legend{gap:5px}.portfolio-allocation .legend-row{padding:0 6px;grid-template-columns:7px 1fr auto;gap:4px;font-size:8px}.portfolio-allocation .legend-row strong{font-size:9px}.holdings-heading{padding:0 13px}.holdings-heading p{max-width:220px;line-height:1.5}.table-toolbar{padding:0 13px}.portfolio-summary .metric-number{letter-spacing:-.6px}}
+
+/* Stockmate chat — fullscreen mode */
+.chat-actions{display:flex;align-items:center;gap:4px}
+.chat-expand{width:30px;height:30px;border:0;border-radius:7px;background:transparent;color:#8b958e;font-size:16px;line-height:1;display:grid;place-items:center}
+.chat-expand:hover,.chat-close:hover{background:#f2f6f3;color:#3f5a4b}
+.chat-close{width:30px;height:30px;border-radius:7px}
+.chat-launcher-hidden{display:none}
+.chat-panel.chat-panel-fullscreen{inset:0;width:auto;height:100dvh;border:0;border-radius:0;box-shadow:none;z-index:50}
+.chat-panel-fullscreen .chat-header{padding:0 max(16px,calc((100vw - 860px)/2))}
+.chat-panel-fullscreen .chat-scope,.chat-panel-fullscreen .chat-disclaimer{padding-left:max(16px,calc((100vw - 860px)/2));padding-right:max(16px,calc((100vw - 860px)/2))}
+.chat-panel-fullscreen .chat-body{padding:28px max(16px,calc((100vw - 860px)/2))}
+.chat-panel-fullscreen .chat-welcome h3{font-size:18px}
+.chat-panel-fullscreen .chat-welcome p{max-width:420px;font-size:13px}
+.chat-panel-fullscreen .chat-questions{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.chat-panel-fullscreen .chat-questions button{height:42px;font-size:12px}
+.chat-panel-fullscreen .chat-message p{max-width:75%;font-size:13px;padding:11px 14px}
+.chat-panel-fullscreen .chat-composer{width:min(860px,calc(100% - 32px));margin:10px auto 18px;align-self:center}
+.chat-panel-fullscreen .chat-composer textarea{font-size:13px}
+.chat-panel-fullscreen .chat-composer small{font-size:9px}
+
+/* Stockmate chat — streaming effects & polish */
+.chat-message{animation:msg-in .32s cubic-bezier(.2,.8,.2,1) both}
+.chat-message.user{animation-name:msg-in-user}
+@keyframes msg-in{from{opacity:0;transform:translate(-6px,8px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes msg-in-user{from{opacity:0;transform:translate(6px,8px) scale(.98)}to{opacity:1;transform:none}}
+.chat-message p{white-space:pre-wrap;word-break:break-word;box-shadow:0 1px 2px #18291f0d}
+.chat-message.user p{background:linear-gradient(135deg,#e6f3eb,#d9ede1)}
+.type-caret{display:inline-block;width:2px;height:1.05em;margin-left:2px;vertical-align:-2px;border-radius:1px;background:#3b8a69;animation:caret-blink .8s steps(1) infinite}
+@keyframes caret-blink{50%{opacity:0}}
+.chat-thinking p{display:inline-flex;align-items:center;gap:9px;background:linear-gradient(90deg,#f4f7f4 25%,#e9f3ec 50%,#f4f7f4 75%);background-size:200% 100%;animation:shimmer 1.6s linear infinite}
+@keyframes shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
+.typing-dots{display:inline-flex;gap:3px}
+.typing-dots i{width:5px;height:5px;border-radius:50%;background:#4f9a77;animation:dot-bounce 1.1s ease-in-out infinite}
+.typing-dots i:nth-child(2){animation-delay:.15s}
+.typing-dots i:nth-child(3){animation-delay:.3s}
+@keyframes dot-bounce{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-4px);opacity:1}}
+.thinking-label{color:#6f7d74}
+.chat-message .comparison-table-wrap{animation:table-in .45s cubic-bezier(.2,.8,.2,1) both}
+@keyframes table-in{from{opacity:0;transform:translateY(6px);clip-path:inset(0 0 100% 0)}to{opacity:1;transform:none;clip-path:inset(0 0 0 0)}}
+.comparison-table tbody tr td{animation:cell-in .4s ease-out both}
+.comparison-table tbody tr td:nth-child(2){animation-delay:.04s}.comparison-table tbody tr td:nth-child(3){animation-delay:.08s}.comparison-table tbody tr td:nth-child(4){animation-delay:.12s}.comparison-table tbody tr td:nth-child(5){animation-delay:.16s}.comparison-table tbody tr td:nth-child(6){animation-delay:.2s}.comparison-table tbody tr td:nth-child(7){animation-delay:.24s}
+@keyframes cell-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.chat-body{scroll-behavior:smooth}
+.chat-body::-webkit-scrollbar{width:6px}
+.chat-body::-webkit-scrollbar-thumb{background:#dbe5de;border-radius:6px}
+.chat-questions button{transition:background .15s,border-color .15s,transform .15s,box-shadow .15s}
+.chat-questions button:hover{transform:translateY(-1px);box-shadow:0 4px 12px #1f5a4214}
+.chat-welcome-icon{animation:icon-glow 3s ease-in-out infinite}
+@keyframes icon-glow{0%,100%{box-shadow:0 0 0 0 #57b98700}50%{box-shadow:0 0 0 6px #57b98722}}
+.chat-brand small i{animation:status-pulse 2s ease-in-out infinite}
+@keyframes status-pulse{0%,100%{box-shadow:0 0 0 0 #57b98766}50%{box-shadow:0 0 0 4px #57b98700}}
+.chat-panel.chat-panel-fullscreen{animation:chat-full-in .26s cubic-bezier(.2,.8,.2,1);background:linear-gradient(180deg,#fff 0,#f7fbf8 100%)}
+@keyframes chat-full-in{from{opacity:.4;transform:scale(.97);border-radius:15px}to{opacity:1;transform:none;border-radius:0}}
+.chat-panel-fullscreen .chat-header{background:#ffffffd9;backdrop-filter:blur(8px)}
+.chat-panel-fullscreen .chat-welcome{padding:24px 5px 26px}
+.chat-panel-fullscreen .chat-welcome-icon{width:52px;height:52px;border-radius:16px;font-size:24px}
+.chat-panel-fullscreen .message-avatar{width:30px;height:30px;font-size:14px}
+.chat-panel-fullscreen .chat-message{margin-top:18px}
+.chat-panel-fullscreen .chat-composer{background:#fff;box-shadow:0 8px 28px #18291f14}
+@media(prefers-reduced-motion:reduce){.chat-message,.chat-panel,.comparison-table-wrap,.comparison-table td,.chat-welcome-icon,.chat-brand small i,.chat-thinking p,.typing-dots i{animation:none!important}.chat-body{scroll-behavior:auto}}
+.chat-panel-fullscreen .suggestion-label{grid-column:1/-1;margin-bottom:2px}
+.chat-expand:focus,.chat-close:focus{outline:none}
+.chat-expand:focus-visible,.chat-close:focus-visible{outline:2px solid #76aa8b;outline-offset:1px}

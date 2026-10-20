@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 type Market = "HOSE" | "HNX" | "UPCOM" | "US";
 type Holding = {
@@ -30,7 +30,53 @@ type ChatMessage = {
   role: "assistant" | "user";
   text: string;
   comparison?: PortfolioComparison;
+  streaming?: boolean;
 };
+
+/** Reveals assistant replies progressively so data appears to stream into the chat. */
+function TypewriterText({
+  text,
+  onTick,
+  onDone,
+}: {
+  text: string;
+  onTick: () => void;
+  onDone: () => void;
+}) {
+  const [count, setCount] = useState(0);
+  const tick = useEffectEvent(onTick);
+  const done = useEffectEvent(onDone);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const frame = requestAnimationFrame(() => {
+        setCount(text.length);
+        done();
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+    // Finish long answers in roughly 1.5s, short ones at a natural pace.
+    const step = Math.max(1, Math.ceil(text.length / 90));
+    let shown = 0;
+    let frame = 0;
+    const advance = () => {
+      shown = Math.min(text.length, shown + step);
+      setCount(shown);
+      tick();
+      if (shown < text.length) frame = requestAnimationFrame(advance);
+      else done();
+    };
+    frame = requestAnimationFrame(advance);
+    return () => cancelAnimationFrame(frame);
+  }, [text]);
+
+  return (
+    <>
+      {text.slice(0, count)}
+      {count < text.length && <span className="type-caret" aria-hidden />}
+    </>
+  );
+}
 type UsQuote = {
   symbol: string;
   currency: "USD";
@@ -73,9 +119,33 @@ export default function Home() {
   const [apiError, setApiError] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatFullscreen, setChatFullscreen] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatBusy, setChatBusy] = useState(false);
+  const chatBodyRef = useRef<HTMLDivElement>(null);
+
+  function scrollChatToBottom(smooth = false) {
+    const body = chatBodyRef.current;
+    if (body)
+      body.scrollTo({
+        top: body.scrollHeight,
+        behavior: smooth ? "smooth" : "instant",
+      });
+  }
+
+  function finishStreaming(index: number) {
+    setChatMessages((messages) =>
+      messages.map((message, i) =>
+        i === index ? { ...message, streaming: false } : message,
+      ),
+    );
+    requestAnimationFrame(() => scrollChatToBottom(true));
+  }
+
+  useEffect(() => {
+    scrollChatToBottom(true);
+  }, [chatMessages.length, chatBusy, chatOpen]);
   const [usSymbol, setUsSymbol] = useState("");
   const [usQuote, setUsQuote] = useState<UsQuote | null>(null);
   const [usQuoteError, setUsQuoteError] = useState("");
@@ -126,6 +196,20 @@ export default function Home() {
       ? holdings
       : holdings.filter((item) => item.market === market);
   const cash = Math.max(capital - invested, 0);
+
+  useEffect(() => {
+    if (!chatOpen || !chatFullscreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setChatFullscreen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [chatOpen, chatFullscreen]);
 
   useEffect(() => {
     let active = true;
@@ -251,7 +335,12 @@ export default function Home() {
         throw new Error(data.error || "Trợ lý chưa lấy được dữ liệu.");
       setChatMessages((messages) => [
         ...messages,
-        { role: "assistant", text: data.answer, comparison: data.comparison },
+        {
+          role: "assistant",
+          text: data.answer,
+          comparison: data.comparison,
+          streaming: true,
+        },
       ]);
     } catch (error) {
       setChatMessages((messages) => [
@@ -262,6 +351,7 @@ export default function Home() {
             error instanceof Error
               ? error.message
               : "Chưa gọi được API trợ lý.",
+          streaming: true,
         },
       ]);
     } finally {
@@ -517,7 +607,7 @@ export default function Home() {
                   <div>
                     <h2>Tổng hợp lãi/lỗ</h2>
                     <p>
-                      Giá trị ước tính theo giá Finnhub/SSI tải gần nhất; USD và
+                      Giá trị ước tính theo giá DNSE/Finnhub tải gần nhất; USD và
                       VND được giữ riêng.
                     </p>
                   </div>
@@ -749,52 +839,8 @@ export default function Home() {
                   </div>
                 </article>
               </section>
-              <section className="middle-grid">
-                <article className="panel capital-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Vốn đầu tư</h2>
-                      <p>Quản lý số vốn bạn đang có</p>
-                    </div>
-                    <span className="edit-tag">● ĐANG THEO DÕI</span>
-                  </div>
-                  <label className="field-label" htmlFor="capital-input">
-                    Tổng số vốn hiện có
-                  </label>
-                  <div className="capital-input-wrap">
-                    <input
-                      id="capital-input"
-                      type="number"
-                      min="0"
-                      step="1000000"
-                      value={capital}
-                      onChange={(e) => setCapital(Number(e.target.value))}
-                    />
-                    <span>VND</span>
-                  </div>
-                  <div className="quick-amounts">
-                    <span>Gợi ý:</span>
-                    {[100_000_000, 250_000_000, 500_000_000].map((amount) => (
-                      <button
-                        key={amount}
-                        className={capital === amount ? "selected" : ""}
-                        onClick={() => setCapital(amount)}
-                      >
-                        {amount / 1_000_000} triệu
-                      </button>
-                    ))}
-                    <button
-                      className="save-capital"
-                      onClick={saveCapital}
-                      disabled={saving || loadingPortfolio}
-                    >
-                      {saving ? "Đang lưu…" : "Lưu vốn"}
-                    </button>
-                  </div>
-                  <div className="capital-note">
-                    <span>✦</span> Vốn được lưu vào danh mục MongoDB của bạn.
-                  </div>
-                </article>
+              
+              <section className="portfolio-allocation">
                 <article className="panel market-panel" id="markets">
                   <div className="panel-heading">
                     <div>
@@ -1030,6 +1076,7 @@ export default function Home() {
                       visibleHoldings.map((item) => {
                         const current = item.currentPrice ?? item.price;
                         const pnl = (current - item.price) * item.shares;
+                        const pnlPercent = item.price > 0 ? ((current - item.price) / item.price) * 100 : 0;
                         const format =
                           item.currency === "USD" ? dollars : money;
                         return (
@@ -1072,27 +1119,32 @@ export default function Home() {
                             <td className="align-right value-cell">
                               {format(current * item.shares)}
                             </td>
-                            <td
-                              className={`align-right ${item.currentPrice === null ? "muted" : pnl >= 0 ? "profit" : "loss-text"}`}
-                            >
-                              {item.currentPrice === null
-                                ? "—"
-                                : `${pnl >= 0 ? "+" : "−"}${format(Math.abs(pnl))}`}
+                            <td className="align-right">
+                              {item.currentPrice === null ? (
+                                <span className="pnl-badge pnl-pending">Đang cập nhật</span>
+                              ) : (
+                                <span className={`pnl-badge ${pnl >= 0 ? "pnl-positive" : "pnl-negative"}`}>
+                                  <strong>{pnl >= 0 ? "+" : "−"}{format(Math.abs(pnl))}</strong>
+                                  <small>{pnl >= 0 ? "▲" : "▼"} {Math.abs(pnlPercent).toFixed(2).replace(".", ",")}%</small>
+                                </span>
+                              )}
                             </td>
-                            <td>
+                            <td className="actions-cell">
                               <button
-                                className="row-menu"
+                                className="row-menu edit-action"
                                 aria-label={`Sửa ${item.ticker}`}
+                                title={`Sửa ${item.ticker}`}
                                 onClick={() => editHolding(item)}
                               >
-                                ✎
+                                <span aria-hidden="true">✎</span><span className="action-label">Sửa</span>
                               </button>
                               <button
                                 className="row-menu delete-menu"
                                 aria-label={`Xóa ${item.ticker}`}
+                                title={`Xóa ${item.ticker}`}
                                 onClick={() => deleteHolding(item.id)}
                               >
-                                ×
+                                <span aria-hidden="true">×</span><span className="action-label">Xóa</span>
                               </button>
                             </td>
                           </tr>
@@ -1216,7 +1268,10 @@ export default function Home() {
         </div>
       )}
       {chatOpen && (
-        <section className="chat-panel" aria-label="Trợ lý Stockmate">
+        <section
+          className={`chat-panel ${chatFullscreen ? "chat-panel-fullscreen" : ""}`}
+          aria-label="Trợ lý Stockmate"
+        >
           <header className="chat-header">
             <div className="chat-brand">
               <span className="chat-avatar">✳</span>
@@ -1227,19 +1282,32 @@ export default function Home() {
                 </small>
               </div>
             </div>
-            <button
-              className="chat-close"
-              onClick={() => setChatOpen(false)}
-              aria-label="Đóng chat"
-            >
-              ×
-            </button>
+            <div className="chat-actions">
+              <button
+                className="chat-expand"
+                onClick={() => setChatFullscreen((full) => !full)}
+                aria-label={chatFullscreen ? "Thu nhỏ" : "Toàn màn hình"}
+                title={chatFullscreen ? "Thu nhỏ (Esc)" : "Toàn màn hình"}
+              >
+                {chatFullscreen ? "⤡" : "⤢"}
+              </button>
+              <button
+                className="chat-close"
+                onClick={() => {
+                  setChatOpen(false);
+                  setChatFullscreen(false);
+                }}
+                aria-label="Đóng chat"
+              >
+                ×
+              </button>
+            </div>
           </header>
           <div className="chat-scope">
             <span>◫</span> Đang xem danh mục của bạn{" "}
             <span className="scope-chevron">⌄</span>
           </div>
-          <div className="chat-body">
+          <div className="chat-body" ref={chatBodyRef}>
             <div className="chat-welcome">
               <span className="chat-welcome-icon">✳</span>
               <h3>Xin chào, Bảo!</h3>
@@ -1276,8 +1344,18 @@ export default function Home() {
                   {message.role === "assistant" ? "✳" : "B"}
                 </span>
                 <div className="chat-message-content">
-                  <p>{message.text}</p>
-                  {message.comparison && (
+                  <p>
+                    {message.streaming ? (
+                      <TypewriterText
+                        text={message.text}
+                        onTick={scrollChatToBottom}
+                        onDone={() => finishStreaming(index)}
+                      />
+                    ) : (
+                      message.text
+                    )}
+                  </p>
+                  {message.comparison && !message.streaming && (
                     <div className="comparison-table-wrap">
                       <table className="comparison-table">
                         <thead>
@@ -1357,10 +1435,19 @@ export default function Home() {
               </div>
             ))}
             {chatBusy && (
-              <div className="chat-message assistant">
+              <div className="chat-message assistant chat-thinking">
                 <span className="message-avatar">✳</span>
                 <div className="chat-message-content">
-                  <p>Đang suy nghĩ và kiểm tra dữ liệu…</p>
+                  <p>
+                    <span className="typing-dots" aria-hidden>
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                    <span className="thinking-label">
+                      Đang kiểm tra dữ liệu danh mục…
+                    </span>
+                  </p>
                 </div>
               </div>
             )}
@@ -1401,8 +1488,11 @@ export default function Home() {
         </section>
       )}
       <button
-        className={`chat-launcher ${chatOpen ? "chat-launcher-open" : ""}`}
-        onClick={() => setChatOpen((open) => !open)}
+        className={`chat-launcher ${chatOpen ? "chat-launcher-open" : ""} ${chatOpen && chatFullscreen ? "chat-launcher-hidden" : ""}`}
+        onClick={() => {
+          setChatOpen((open) => !open);
+          setChatFullscreen(false);
+        }}
         aria-expanded={chatOpen}
       >
         <span className="launcher-symbol">{chatOpen ? "×" : "✳"}</span>
