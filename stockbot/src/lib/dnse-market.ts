@@ -33,18 +33,26 @@ async function getDnseJson(path: string, query = "") {
 
   const date = formatDnseDate(new Date());
   const nonce = randomUUID().replace(/-/g, "");
-  const response = await fetch(`https://openapi.dnse.com.vn${path}${query}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      Date: date,
-      "X-Signature": signRequest(path, date, nonce, apiSecret),
-      "x-api-key": apiKey,
-      version: process.env.DNSE_API_VERSION || "2026-05-07",
-    },
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`https://openapi.dnse.com.vn${path}${query}`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Date: date,
+        "X-Signature": signRequest(path, date, nonce, apiSecret),
+        "x-api-key": apiKey,
+        version: process.env.DNSE_API_VERSION || "2026-05-07",
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      throw new Error("DNSE không phản hồi sau 10 giây. Máy chủ có thể đang ở ngoài Việt Nam hoặc bị DNSE chặn kết nối.");
+    }
+    throw new Error("Không kết nối được tới DNSE.");
+  }
 
   const body = await response.text();
   if (!response.ok) {
