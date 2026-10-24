@@ -31,8 +31,10 @@ Mục tiêu: xem biểu đồ nến từng mã, giá vốn và khối lượng *
   → Xong. Nhân 1.000 cho STOCK, giữ điểm cho INDEX/DERIVATIVE. DNSE không cần phân trang (1 lần gọi trả 10 năm nến ngày, 4.743 nến 1 phút).
 - [x] API route `GET /api/market/ohlc/[symbol]?resolution=1D&from=&to=`, có cache ngắn hợp lý.
   → Xong. Mặc định 1D/1 năm; hỗ trợ `type=INDEX` (VNINDEX). Cache-Control private 15s (intraday) / 300s (1D, 1W). Đã test bằng request thật.
-- [ ] Cài `lightweight-charts`, component `CandleChart` (nến + volume, đổi khung 1D/1W/1M, 1 phút/5 phút nếu API có).
-- [ ] Trang `/stock/[symbol]`: biểu đồ, giá hiện tại, % thay đổi, và nếu đang nắm giữ thì hiện đường giá vốn trên biểu đồ.
+- [x] Cài `lightweight-charts`, component `CandleChart` (nến + volume, đổi khung 1D/1W/1M, 1 phút/5 phút nếu API có).
+  → Xong. `lightweight-charts@5.2.1`, `src/components/charts/CandleChart.tsx`: nến + volume, khung 1/5/15 phút, 1 giờ, Ngày, Tuần (DNSE không có nến tháng). Giờ hiển thị theo VN (UTC+7).
+- [x] Trang `/stock/[symbol]`: biểu đồ, giá hiện tại, % thay đổi, và nếu đang nắm giữ thì hiện đường giá vốn trên biểu đồ.
+  → Xong. Thanh giá (khớp gần nhất, tham chiếu, cao/thấp, KL), biểu đồ, thẻ vị thế + đường giá vốn nét đứt (hiện lấy từ danh mục nhập tay; Phase 4 thêm DNSE). Hỗ trợ chỉ số (VNINDEX, VN30…). Đã chụp màn hình headless xác nhận biểu đồ render. Sửa thêm: CSS `.api-alert` (trước đây không có) và lưới 4 thẻ trang Danh mục.
 
 ## Phase 3 — Giá vốn thật từ tài khoản DNSE
 

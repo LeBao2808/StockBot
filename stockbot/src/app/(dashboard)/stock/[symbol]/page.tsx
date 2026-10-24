@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { StockDetail } from "@/components/stock/StockDetail";
 
 export default async function StockPage({
   params,
@@ -9,9 +10,12 @@ export default async function StockPage({
   if (!/^[A-Z0-9]{2,12}$/.test(symbol)) notFound();
 
   return (
-    <PageHeader
-      title={symbol}
-      description="Biểu đồ giá và vị thế của bạn với mã này."
-    />
+    <>
+      <PageHeader
+        title={symbol}
+        description="Biểu đồ giá và vị thế của bạn với mã này."
+      />
+      <StockDetail key={symbol} symbol={symbol} />
+    </>
   );
 }
