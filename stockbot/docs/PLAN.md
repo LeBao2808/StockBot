@@ -53,7 +53,8 @@ Mục tiêu: xem biểu đồ nến từng mã, giá vốn và khối lượng *
   → Xong. `DnseSummaryCards`: tài sản ròng (tiền + CP − nợ), giá trị CP/giá vốn, tiền mặt/khả dụng, lãi/lỗ %. Tỷ trọng từng mã nằm trong bảng.
 - [x] Giữ danh mục nhập tay (model `Holding`) như nguồn phụ cho mã US/ngoài DNSE; ghi rõ nguồn dữ liệu trên UI.
   → Xong. Mục "Danh mục nhập tay" nằm bên dưới; nhãn nguồn "DNSE · ENTRADE X" / "DỮ LIỆU MẪU". Trang `/stock/[symbol]` ưu tiên giá vốn DNSE, nếu không có mới dùng danh mục nhập tay. Đã chụp màn hình cả chế độ mock và thật.
-- [ ] Lưu `PortfolioSnapshot` từ dữ liệu DNSE (nút "Chụp lại" + dùng cho biểu đồ hiệu suất).
+- [x] Lưu `PortfolioSnapshot` từ dữ liệu DNSE (nút "Chụp lại" + dùng cho biểu đồ hiệu suất).
+  → Code xong, **chưa test được với DB** (MongoDB không kết nối, xem Blocked). `GET/POST /api/portfolio/snapshots`; POST tự định giá tài khoản DNSE phía server (`getDnseValuation()`) rồi lưu. Trang Hiệu suất có panel "Lịch sử tài sản DNSE" + nút "Chụp lại" + biểu đồ đường. Đã xác nhận báo lỗi DB hiển thị đúng; phần vẽ biểu đồ cần kiểm tra lại khi DB chạy.
 
 ## Phase 5 — Realtime
 

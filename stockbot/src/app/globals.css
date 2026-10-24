@@ -173,3 +173,13 @@
 .section-title{display:flex;align-items:baseline;gap:10px;margin:26px 0 12px}
 .section-title h2{margin:0;font-size:14px;font-weight:650}
 .section-title p{margin:0;font-size:10px;color:#929a95}
+
+/* Snapshot history */
+.history-panel{margin-bottom:14px}
+.history-alert{margin:14px 0 0}
+.history-empty{margin:18px 0 4px;font-size:11px}
+.history-stats{display:flex;flex-wrap:wrap;gap:10px 30px;margin:16px 0 10px}
+.history-stats span{font-size:9px;color:#89928c}
+.history-stats strong{display:block;margin-top:5px;font-size:13px;font-weight:650;color:#3a443d}
+.history-stats strong.profit{color:#168265}.history-stats strong.loss-text{color:#d14e45}
+.history-chart{height:260px}

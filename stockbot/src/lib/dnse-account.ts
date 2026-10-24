@@ -1,7 +1,7 @@
 import accountsSample from "../../docs/dnse-samples/accounts.json";
 import balancesSample from "../../docs/dnse-samples/balances.json";
 import positionsSample from "../../docs/dnse-samples/positions-stock.json";
-import { asRecord, getDnseAccountNos, getDnseJson } from "@/lib/dnse-market";
+import { asRecord, getDnseAccountNos, getDnseJson, getDnseQuote } from "@/lib/dnse-market";
 
 // Read-only views of the DNSE (Entrade X) account. Only GET endpoints are
 // called; nothing here needs a trading token.
@@ -118,4 +118,46 @@ export async function getDnseCash(): Promise<{ source: DnseSource; accounts: Dns
   const accounts = await Promise.all(accountNos.map(async (accountNo) =>
     parseCash(await getDnseJson(`/accounts/${encodeURIComponent(accountNo)}/balances`), accountNo)));
   return { source: "DNSE", accounts };
+}
+
+export type DnseValuation = {
+  source: DnseSource;
+  positions: Array<DnsePosition & { price: number; marketValue: number; pnl: number }>;
+  cash: number;
+  debt: number;
+  stockValue: number;
+  costValue: number;
+  netAssets: number;
+  pnl: number;
+  valuedAt: string;
+};
+
+/** Positions priced at the latest matched trade (falling back to DNSE's price), plus cash. */
+export async function getDnseValuation(): Promise<DnseValuation> {
+  const [{ source, positions }, { accounts }] = await Promise.all([getDnsePositions(), getDnseCash()]);
+  const symbols = [...new Set(positions.map((item) => item.symbol))];
+  const quotes = new Map(await Promise.all(symbols.map(async (symbol) => {
+    const quote = await getDnseQuote(symbol).catch(() => null);
+    return [symbol, quote?.price ?? null] as const;
+  })));
+  const priced = positions.map((item) => {
+    const price = quotes.get(item.symbol) ?? item.marketPrice ?? item.costPrice;
+    const marketValue = item.quantity * price;
+    return { ...item, price, marketValue, pnl: marketValue - item.quantity * item.costPrice };
+  });
+  const stockValue = priced.reduce((sum, item) => sum + item.marketValue, 0);
+  const costValue = priced.reduce((sum, item) => sum + item.quantity * item.costPrice, 0);
+  const cash = accounts.reduce((sum, item) => sum + item.totalCash, 0);
+  const debt = accounts.reduce((sum, item) => sum + item.totalDebt, 0);
+  return {
+    source,
+    positions: priced,
+    cash,
+    debt,
+    stockValue,
+    costValue,
+    netAssets: cash + stockValue - debt,
+    pnl: stockValue - costValue,
+    valuedAt: new Date().toISOString(),
+  };
 }
