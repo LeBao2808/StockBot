@@ -2,6 +2,7 @@ import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod/v4";
 import { getFinnhubQuote } from "@/lib/finnhub";
+import { getDnseValuation } from "@/lib/dnse-account";
 import { getDnseAccountBalances, getDnseQuote } from "@/lib/dnse-market";
 import { getMainPortfolio } from "@/lib/portfolio";
 import { prisma } from "@/lib/prisma";
@@ -26,7 +27,7 @@ export type ComparisonToolResult = {
   source: "MCP + Finnhub" | "MCP + DNSE";
 };
 
-export type StockMateToolName = "compare_portfolio_holding" | "get_stock_quote" | "summarize_portfolio" | "get_dnse_cash_balance";
+export type StockMateToolName = "compare_portfolio_holding" | "get_stock_quote" | "summarize_portfolio" | "get_dnse_cash_balance" | "get_dnse_positions";
 export type StockMateToolOutput = ComparisonToolResult & { quote?: unknown; holdings?: unknown[]; balances?: unknown[] };
 
 const sourceFor = (market: "VN" | "US") => market === "VN" ? "MCP + DNSE" as const : "MCP + Finnhub" as const;
@@ -136,6 +137,32 @@ async function getDnseCashBalance(): Promise<StockMateToolOutput> {
   return { answer, balances, fetchedAt: new Date().toISOString(), source: "MCP + DNSE" };
 }
 
+async function getDnsePositionsSummary(): Promise<StockMateToolOutput> {
+  const valuation = await getDnseValuation();
+  const sample = valuation.source === "MOCK" ? " (DỮ LIỆU MẪU — chưa đọc tài khoản thật)" : "";
+  if (!valuation.positions.length) {
+    return {
+      answer: `Tài khoản DNSE hiện chưa nắm giữ cổ phiếu nào${sample}. Tiền: ${formatVnd(valuation.cash)}.`,
+      holdings: [],
+      fetchedAt: valuation.valuedAt,
+      source: "MCP + DNSE",
+    };
+  }
+  const lines = [...valuation.positions]
+    .sort((a, b) => b.marketValue - a.marketValue)
+    .map((item) => {
+      const pnlPercent = item.costPrice > 0 ? ((item.price - item.costPrice) / item.costPrice) * 100 : 0;
+      return `${item.symbol}: ${item.quantity} cp, giá vốn ${formatVnd(item.costPrice)}, giá hiện tại ${formatVnd(item.price)}, lãi/lỗ ${item.pnl >= 0 ? "+" : "−"}${formatVnd(Math.abs(item.pnl))} (${pnlPercent >= 0 ? "+" : ""}${pnlPercent.toFixed(2)}%)`;
+    });
+  const pnlPercent = valuation.costValue > 0 ? (valuation.pnl / valuation.costValue) * 100 : 0;
+  return {
+    answer: `Vị thế trên DNSE${sample}: ${lines.join("; ")}. Tổng giá trị cổ phiếu ${formatVnd(valuation.stockValue)}, lãi/lỗ tạm tính ${valuation.pnl >= 0 ? "+" : "−"}${formatVnd(Math.abs(valuation.pnl))} (${pnlPercent >= 0 ? "+" : ""}${pnlPercent.toFixed(2)}%). Tài sản ròng ${formatVnd(valuation.netAssets)}. Chỉ đọc; đây không phải khuyến nghị mua bán.`,
+    holdings: valuation.positions.map(({ symbol, quantity, costPrice, price, marketValue, pnl }) => ({ symbol, quantity, costPrice, price, marketValue, pnl })),
+    fetchedAt: valuation.valuedAt,
+    source: "MCP + DNSE",
+  };
+}
+
 function registerToolHandler<TArgs extends Record<string, unknown>>(
   server: McpServer,
   name: StockMateToolName,
@@ -162,6 +189,7 @@ export function createStockMateMcpServer() {
   registerToolHandler(server, "get_stock_quote", "Tra cứu giá cổ phiếu. Chọn market VN cho mã Việt Nam trên HOSE/HNX/UPCoM (DNSE), hoặc US cho mã Mỹ (Finnhub). FPT là mã VN; AAPL là mã US.", quoteSchema, ({ symbol, market }) => getStockQuote(symbol, market));
   registerToolHandler(server, "summarize_portfolio", "Tóm tắt danh mục và giá từ DNSE cho mã Việt Nam, Finnhub cho mã Mỹ.", z.object({}), () => summarizePortfolio());
   registerToolHandler(server, "get_dnse_cash_balance", "Đọc số dư tiền và tài sản trong các tiểu khoản DNSE của người dùng. Chỉ dùng khi người dùng hỏi còn bao nhiêu tiền, số dư tài khoản chứng khoán, hoặc tiền trong ví DNSE. Chỉ đọc, không đặt/hủy lệnh. Nêu rõ các mục DNSE trả về và không gọi sức mua là tiền mặt.", z.object({}), () => getDnseCashBalance());
+  registerToolHandler(server, "get_dnse_positions", "Đọc các vị thế cổ phiếu đang nắm giữ trên tài khoản DNSE (Entrade X) thật: mã, khối lượng, giá vốn, giá hiện tại, lãi/lỗ và tổng tài sản. Dùng khi người dùng hỏi đang giữ mã nào, giá vốn, lãi lỗ trên DNSE/Entrade X. Chỉ đọc, không đặt/hủy lệnh.", z.object({}), () => getDnsePositionsSummary());
   return server;
 }
 

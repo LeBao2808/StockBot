@@ -37,6 +37,11 @@ const tools = [
     description: "Read the user's actual DNSE sub-account balance using DNSE OpenAPI. Use when they ask how much cash/money remains in their brokerage wallet or for account cash balance. This is read-only. Keep DNSE balance categories separate and do not equate buying power with cash.",
     parameters: { type: "OBJECT", properties: {}, required: [] },
   },
+  {
+    name: "get_dnse_positions",
+    description: "Read the stock positions the user actually holds in their DNSE (Entrade X) account: symbols, quantity, average cost, current price, profit/loss and net assets. Use when they ask what they hold on DNSE/Entrade X, their real cost basis there, or real P/L. Read-only.",
+    parameters: { type: "OBJECT", properties: {}, required: [] },
+  },
 ];
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
@@ -116,8 +121,8 @@ export async function POST(request: Request) {
             source: "MCP + DNSE",
           };
         }
-        // Keep personal brokerage balances inside StockMate; don't send the MCP result back to Gemini for paraphrasing.
-        if (call.name === "get_dnse_cash_balance") {
+        // Keep personal brokerage balances and positions inside StockMate; don't send the MCP result back to Gemini for paraphrasing.
+        if (call.name === "get_dnse_cash_balance" || call.name === "get_dnse_positions") {
           return NextResponse.json({ answer: toolResult.answer, source: "MCP + DNSE", fetchedAt: toolResult.fetchedAt });
         }
         if (toolResult.comparison) comparison = toolResult.comparison;
