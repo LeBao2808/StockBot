@@ -22,7 +22,8 @@ Mục tiêu: xem biểu đồ nến từng mã, giá vốn và khối lượng *
 
 - [x] Tách `src/app/page.tsx` (~1500 dòng) thành component trong `src/components/` (types dùng chung → `src/lib/types.ts`). Không đổi giao diện/hành vi.
   → Xong. page.tsx còn ~100 dòng; state danh mục nằm trong `PortfolioProvider` (context) để các route sau dùng chung. Sửa luôn cảnh báo lint `set-state-in-effect`.
-- [ ] Thêm layout điều hướng: Tổng quan, Danh mục, `/stock/[symbol]`.
+- [x] Thêm layout điều hướng: Tổng quan, Danh mục, `/stock/[symbol]`.
+  → Xong. Route group `src/app/(dashboard)/` có layout chung (`DashboardShell`): `/`, `/portfolio`, `/markets`, `/performance`, `/stock/[symbol]`. Sidebar dùng `Link` + ô "Tra mã" để mở `/stock/XXX`. Đã chạy thử `next start`: cả 5 route trả 200, mã sai trả 404.
 
 ## Phase 2 — Biểu đồ từng mã
 
@@ -58,7 +59,7 @@ Mục tiêu: xem biểu đồ nến từng mã, giá vốn và khối lượng *
 
 ## Blocked
 
-_(trống)_
+- **MongoDB không kết nối được từ máy local** (2026-10-24): `GET /api/portfolio` trả 503 sau 30s ("Hãy kiểm tra kết nối database"). Lỗi có sẵn từ trước, không do refactor. Cần người dùng: kiểm tra `MONGODB_URI`, whitelist IP hiện tại trong MongoDB Atlas → Network Access. Ảnh hưởng: danh mục nhập tay, snapshot, watchlist chưa test thật được; phần DNSE không bị ảnh hưởng.
 
 ## Báo cáo
 

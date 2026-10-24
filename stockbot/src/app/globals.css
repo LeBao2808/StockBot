@@ -117,3 +117,11 @@
 .chat-panel-fullscreen .suggestion-label{grid-column:1/-1;margin-bottom:2px}
 .chat-expand:focus,.chat-close:focus{outline:none}
 .chat-expand:focus-visible,.chat-close:focus-visible{outline:2px solid #76aa8b;outline-offset:1px}
+
+/* Sidebar symbol search */
+.symbol-search{display:flex;align-items:center;gap:4px;margin:-28px 2px 22px;height:34px;padding:0 4px 0 10px;border:1px solid #e3e9e4;border-radius:8px;background:#fafcfa}
+.symbol-search:focus-within{border-color:#5b9d7b;box-shadow:0 0 0 2px #e4f2e9}
+.symbol-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:11px;color:#313a34;text-transform:uppercase}
+.symbol-search input::placeholder{text-transform:none;color:#a0a7a2}
+.symbol-search button{width:26px;height:26px;border:0;border-radius:6px;background:#edf6f1;color:#26795f;font-weight:700}
+@media(max-width:780px){.symbol-search{display:none}}
