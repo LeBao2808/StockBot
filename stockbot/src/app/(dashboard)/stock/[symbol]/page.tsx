@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StockDetail } from "@/components/stock/StockDetail";
+import { WatchButton } from "@/components/watchlist/WatchlistPanel";
 
 export default async function StockPage({
   params,
@@ -14,6 +15,7 @@ export default async function StockPage({
       <PageHeader
         title={symbol}
         description="Biểu đồ giá và vị thế của bạn với mã này."
+        action={<WatchButton symbol={symbol} />}
       />
       <StockDetail key={symbol} symbol={symbol} />
     </>

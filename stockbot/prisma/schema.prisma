@@ -16,6 +16,7 @@ model Portfolio {
   updatedAt DateTime            @updatedAt
   holdings  Holding[]
   snapshots PortfolioSnapshot[]
+  watchlist WatchlistItem[]
 }
 
 model Holding {
@@ -45,4 +46,14 @@ model PortfolioSnapshot {
   unrealizedPnlUsd Float?
   priceSource      String?
   note             String?
+}
+
+model WatchlistItem {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  symbol      String
+  portfolioId String    @db.ObjectId
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id])
+  createdAt   DateTime  @default(now())
+
+  @@unique([portfolioId, symbol])
 }
