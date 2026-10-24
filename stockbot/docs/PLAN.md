@@ -47,9 +47,12 @@ Mục tiêu: xem biểu đồ nến từng mã, giá vốn và khối lượng *
 
 ## Phase 4 — Dashboard danh mục thật
 
-- [ ] Bảng danh mục lấy từ DNSE: mã, KL, giá vốn, giá thị trường, giá trị, lãi/lỗ (VND, %); click mã → `/stock/[symbol]`.
-- [ ] Thẻ tổng: tổng tài sản, tiền mặt, tổng lãi/lỗ, tỷ trọng từng mã.
-- [ ] Giữ danh mục nhập tay (model `Holding`) như nguồn phụ cho mã US/ngoài DNSE; ghi rõ nguồn dữ liệu trên UI.
+- [x] Bảng danh mục lấy từ DNSE: mã, KL, giá vốn, giá thị trường, giá trị, lãi/lỗ (VND, %); click mã → `/stock/[symbol]`.
+  → Xong. `DnseProvider` (context dùng chung) + `DnsePositionsTable`: giá live từ `/price/{symbol}/trades/latest`, nếu không có thì dùng giá DNSE báo; có cột tỷ trọng và KL khả dụng. Hiện ở Tổng quan + Danh mục.
+- [x] Thẻ tổng: tổng tài sản, tiền mặt, tổng lãi/lỗ, tỷ trọng từng mã.
+  → Xong. `DnseSummaryCards`: tài sản ròng (tiền + CP − nợ), giá trị CP/giá vốn, tiền mặt/khả dụng, lãi/lỗ %. Tỷ trọng từng mã nằm trong bảng.
+- [x] Giữ danh mục nhập tay (model `Holding`) như nguồn phụ cho mã US/ngoài DNSE; ghi rõ nguồn dữ liệu trên UI.
+  → Xong. Mục "Danh mục nhập tay" nằm bên dưới; nhãn nguồn "DNSE · ENTRADE X" / "DỮ LIỆU MẪU". Trang `/stock/[symbol]` ưu tiên giá vốn DNSE, nếu không có mới dùng danh mục nhập tay. Đã chụp màn hình cả chế độ mock và thật.
 - [ ] Lưu `PortfolioSnapshot` từ dữ liệu DNSE (nút "Chụp lại" + dùng cho biểu đồ hiệu suất).
 
 ## Phase 5 — Realtime

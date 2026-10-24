@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { CandleChart, type Candle } from "@/components/charts/CandleChart";
+import { DnseSourceBadge } from "@/components/dnse/DnsePortfolio";
+import { useDnse } from "@/components/dnse/DnseProvider";
 import { usePortfolio } from "@/components/portfolio/PortfolioProvider";
 import { money } from "@/lib/format";
 
@@ -88,9 +90,17 @@ export function StockDetail({ symbol }: { symbol: string }) {
   const format = type === "STOCK" ? money : points;
   const { snapshot, error, loading } = useSnapshot(symbol, type);
   const { holdings } = usePortfolio();
-  const holding =
-    type === "STOCK"
+  const { positionFor } = useDnse();
+  // DNSE (Entrade X) is the source of truth; fall back to the manual portfolio.
+  const dnsePosition = type === "STOCK" ? positionFor(symbol) : undefined;
+  const manual =
+    type === "STOCK" && !dnsePosition
       ? holdings.find((item) => item.ticker === symbol && item.currency === "VND")
+      : undefined;
+  const holding = dnsePosition
+    ? { shares: dnsePosition.quantity, price: dnsePosition.costPrice, source: "DNSE" as const }
+    : manual
+      ? { shares: manual.shares, price: manual.price, source: "MANUAL" as const }
       : undefined;
 
   const change =
@@ -99,7 +109,7 @@ export function StockDetail({ symbol }: { symbol: string }) {
     change != null && snapshot?.previousClose ? (change / snapshot.previousClose) * 100 : null;
   const direction = change == null || change === 0 ? "flat" : change > 0 ? "up" : "down";
 
-  const marketPrice = snapshot?.price ?? holding?.currentPrice ?? null;
+  const marketPrice = snapshot?.price ?? dnsePosition?.price ?? manual?.currentPrice ?? null;
   const positionValue = holding && marketPrice ? holding.shares * marketPrice : null;
   const positionPnl = holding && marketPrice ? (marketPrice - holding.price) * holding.shares : null;
   const positionPnlPercent =
@@ -164,8 +174,13 @@ export function StockDetail({ symbol }: { symbol: string }) {
         <section className="panel stock-position">
           <div className="panel-heading">
             <div>
-              <h2>Vị thế của bạn</h2>
-              <p>Theo danh mục nhập tay · đường nét đứt trên biểu đồ là giá vốn</p>
+              <h2>
+                Vị thế của bạn {holding.source === "DNSE" && <DnseSourceBadge />}
+              </h2>
+              <p>
+                {holding.source === "DNSE" ? "Theo tài khoản DNSE" : "Theo danh mục nhập tay"} · đường nét đứt trên biểu
+                đồ là giá vốn
+              </p>
             </div>
           </div>
           <div className="stock-position-grid">

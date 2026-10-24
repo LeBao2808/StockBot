@@ -1,3 +1,4 @@
+import { DnsePositionsTable, DnseSummaryCards } from "@/components/dnse/DnsePortfolio";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { OverviewSummary } from "@/components/portfolio/OverviewSummary";
 
@@ -12,6 +13,12 @@ export default function OverviewPage() {
         }
         description="Đây là bức tranh tổng quan về khoản đầu tư của bạn."
       />
+      <DnseSummaryCards />
+      <DnsePositionsTable />
+      <div className="section-title">
+        <h2>Danh mục nhập tay</h2>
+        <p>Cổ phiếu Mỹ và các khoản ngoài DNSE</p>
+      </div>
       <OverviewSummary />
     </>
   );
