@@ -123,6 +123,63 @@ export async function getDnseQuote(rawSymbol: string) {
   return { symbol, ...latest, price: latest.price * 1000, source: "DNSE" as const } satisfies DnseQuote;
 }
 
+export const OHLC_RESOLUTIONS = ["1", "3", "5", "15", "30", "1H", "1D", "1W"] as const;
+export type OhlcResolution = (typeof OHLC_RESOLUTIONS)[number];
+export type OhlcMarketType = "STOCK" | "DERIVATIVE" | "INDEX";
+
+export type OhlcCandle = {
+  /** Unix seconds (UTC) at the candle open. */
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
+/**
+ * Historical candles from `GET /price/ohlc`. Stock prices are converted from
+ * thousands of VND to VND; index and derivative candles stay in points.
+ */
+export async function getDnseOhlc(
+  rawSymbol: string,
+  resolution: OhlcResolution,
+  from: number,
+  to: number,
+  type: OhlcMarketType = "STOCK",
+): Promise<OhlcCandle[]> {
+  const symbol = rawSymbol.trim().toUpperCase();
+  const query = new URLSearchParams({
+    symbol,
+    type,
+    resolution,
+    from: String(Math.floor(from)),
+    to: String(Math.floor(to)),
+  });
+  const payload = asRecord(await getDnseJson("/price/ohlc", `?${query}`));
+  const column = (key: string) => {
+    const values = payload?.[key];
+    return Array.isArray(values) ? values.map(Number) : [];
+  };
+  const [t, o, h, l, c, v] = ["t", "o", "h", "l", "c", "v"].map(column);
+  const scale = type === "STOCK" ? 1000 : 1;
+
+  const candles: OhlcCandle[] = [];
+  for (let i = 0; i < t.length; i++) {
+    const values = [o[i], h[i], l[i], c[i]];
+    if (!Number.isFinite(t[i]) || values.some((value) => !Number.isFinite(value) || value <= 0)) continue;
+    candles.push({
+      time: t[i],
+      open: o[i] * scale,
+      high: h[i] * scale,
+      low: l[i] * scale,
+      close: c[i] * scale,
+      volume: Number.isFinite(v[i]) ? v[i] : 0,
+    });
+  }
+  return candles;
+}
+
 export type DnseAccountBalance = {
   accountNo: string;
   sections: Array<{ name: string; amounts: Array<{ field: string; value: number }> }>;

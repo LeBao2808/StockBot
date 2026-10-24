@@ -27,8 +27,10 @@ Mục tiêu: xem biểu đồ nến từng mã, giá vốn và khối lượng *
 
 ## Phase 2 — Biểu đồ từng mã
 
-- [ ] `src/lib/dnse-market.ts`: hàm `getDnseOhlc(symbol, resolution, from, to)` trả `{ time, open, high, low, close, volume }[]` (đơn vị VND).
-- [ ] API route `GET /api/market/ohlc/[symbol]?resolution=1D&from=&to=`, có cache ngắn hợp lý.
+- [x] `src/lib/dnse-market.ts`: hàm `getDnseOhlc(symbol, resolution, from, to)` trả `{ time, open, high, low, close, volume }[]` (đơn vị VND).
+  → Xong. Nhân 1.000 cho STOCK, giữ điểm cho INDEX/DERIVATIVE. DNSE không cần phân trang (1 lần gọi trả 10 năm nến ngày, 4.743 nến 1 phút).
+- [x] API route `GET /api/market/ohlc/[symbol]?resolution=1D&from=&to=`, có cache ngắn hợp lý.
+  → Xong. Mặc định 1D/1 năm; hỗ trợ `type=INDEX` (VNINDEX). Cache-Control private 15s (intraday) / 300s (1D, 1W). Đã test bằng request thật.
 - [ ] Cài `lightweight-charts`, component `CandleChart` (nến + volume, đổi khung 1D/1W/1M, 1 phút/5 phút nếu API có).
 - [ ] Trang `/stock/[symbol]`: biểu đồ, giá hiện tại, % thay đổi, và nếu đang nắm giữ thì hiện đường giá vốn trên biểu đồ.
 
