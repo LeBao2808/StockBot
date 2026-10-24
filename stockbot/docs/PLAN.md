@@ -20,7 +20,8 @@ Mục tiêu: xem biểu đồ nến từng mã, giá vốn và khối lượng *
 
 ## Phase 1 — Dọn cấu trúc
 
-- [ ] Tách `src/app/page.tsx` (~1500 dòng) thành component trong `src/components/` (types dùng chung → `src/lib/types.ts`). Không đổi giao diện/hành vi.
+- [x] Tách `src/app/page.tsx` (~1500 dòng) thành component trong `src/components/` (types dùng chung → `src/lib/types.ts`). Không đổi giao diện/hành vi.
+  → Xong. page.tsx còn ~100 dòng; state danh mục nằm trong `PortfolioProvider` (context) để các route sau dùng chung. Sửa luôn cảnh báo lint `set-state-in-effect`.
 - [ ] Thêm layout điều hướng: Tổng quan, Danh mục, `/stock/[symbol]`.
 
 ## Phase 2 — Biểu đồ từng mã
