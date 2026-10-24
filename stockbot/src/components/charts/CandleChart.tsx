@@ -12,6 +12,7 @@ import {
   type ISeriesApi,
   type UTCTimestamp,
 } from "lightweight-charts";
+import { useTradingInterval } from "@/lib/market-hours";
 
 export type Candle = {
   time: number;
@@ -38,6 +39,19 @@ const VN_OFFSET = 7 * 3600;
 const UP = "#2e9c6a";
 const DOWN = "#d65b4a";
 
+const toCandle = (item: Candle) => ({
+  time: (item.time + VN_OFFSET) as UTCTimestamp,
+  open: item.open,
+  high: item.high,
+  low: item.low,
+  close: item.close,
+});
+const toVolume = (item: Candle) => ({
+  time: (item.time + VN_OFFSET) as UTCTimestamp,
+  value: item.volume,
+  color: item.close >= item.open ? "#2e9c6a55" : "#d65b4a55",
+});
+
 type LoadState = {
   key: string;
   candles: Candle[];
@@ -62,7 +76,13 @@ export function CandleChart({
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const [resolution, setResolution] = useState(defaultResolution);
   const [state, setState] = useState<LoadState>({ key: "", candles: [], error: "" });
+  const lastTimeRef = useRef<number | null>(null);
   const requestKey = `${symbol}|${type}|${resolution}`;
+  // Lets a slow live-update response detect that the timeframe changed meanwhile.
+  const requestKeyRef = useRef(requestKey);
+  useEffect(() => {
+    requestKeyRef.current = requestKey;
+  }, [requestKey]);
   const loading = state.key !== requestKey;
   const intraday = resolution !== "1D" && resolution !== "1W";
 
@@ -157,24 +177,38 @@ export function CandleChart({
     const candles = candleRef.current;
     const volume = volumeRef.current;
     if (!candles || !volume || loading) return;
-    candles.setData(
-      state.candles.map((item) => ({
-        time: (item.time + VN_OFFSET) as UTCTimestamp,
-        open: item.open,
-        high: item.high,
-        low: item.low,
-        close: item.close,
-      })),
-    );
-    volume.setData(
-      state.candles.map((item) => ({
-        time: (item.time + VN_OFFSET) as UTCTimestamp,
-        value: item.volume,
-        color: item.close >= item.open ? "#2e9c6a55" : "#d65b4a55",
-      })),
-    );
+    candles.setData(state.candles.map(toCandle));
+    volume.setData(state.candles.map(toVolume));
+    lastTimeRef.current = state.candles.at(-1)?.time ?? null;
     chartRef.current?.timeScale().fitContent();
   }, [state, loading]);
+
+  // While the market is open, refetch from the last candle and patch it in place.
+  useTradingInterval(() => {
+    const since = lastTimeRef.current;
+    if (since === null || loading) return;
+    const key = requestKey;
+    const query = new URLSearchParams({
+      resolution,
+      type,
+      from: String(since),
+      to: String(Math.floor(Date.now() / 1000) + 60),
+    });
+    fetch(`/api/market/ohlc/${encodeURIComponent(symbol)}?${query}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { candles?: Candle[] } | null) => {
+        const candles = candleRef.current;
+        const volume = volumeRef.current;
+        if (!data?.candles || !candles || !volume || key !== requestKeyRef.current) return;
+        for (const item of data.candles) {
+          if (lastTimeRef.current !== null && item.time < lastTimeRef.current) continue;
+          candles.update(toCandle(item));
+          volume.update(toVolume(item));
+          lastTimeRef.current = item.time;
+        }
+      })
+      .catch(() => undefined);
+  });
 
   useEffect(() => {
     const candles = candleRef.current;

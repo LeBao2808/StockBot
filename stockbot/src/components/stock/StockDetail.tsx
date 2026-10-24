@@ -6,6 +6,7 @@ import { DnseSourceBadge } from "@/components/dnse/DnsePortfolio";
 import { useDnse } from "@/components/dnse/DnseProvider";
 import { usePortfolio } from "@/components/portfolio/PortfolioProvider";
 import { money } from "@/lib/format";
+import { useTradingInterval } from "@/lib/market-hours";
 
 const INDEX_SYMBOLS = new Set(["VNINDEX", "VN30", "HNXINDEX", "HNX30", "UPCOMINDEX", "VN100", "VNXALL"]);
 
@@ -25,6 +26,9 @@ const volumeFormat = (value: number) => new Intl.NumberFormat("vi-VN").format(va
 
 /** Latest daily candles plus the last matched trade, for the header strip. */
 function useSnapshot(symbol: string, type: "STOCK" | "INDEX") {
+  // Bumped every 10s during the session to refetch; the previous snapshot stays visible meanwhile.
+  const [tick, setTick] = useState(0);
+  useTradingInterval(() => setTick((value) => value + 1));
   const [result, setResult] = useState<{ symbol: string; snapshot: Snapshot | null; error: string }>({
     symbol: "",
     snapshot: null,
@@ -80,7 +84,7 @@ function useSnapshot(symbol: string, type: "STOCK" | "INDEX") {
     return () => {
       active = false;
     };
-  }, [symbol, type]);
+  }, [symbol, type, tick]);
 
   return { ...result, loading: result.symbol !== symbol };
 }

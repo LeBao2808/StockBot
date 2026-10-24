@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, use, useCallback, useEffect, useMemo, useState } from "react";
+import { useTradingInterval } from "@/lib/market-hours";
 
 export type DnseSource = "DNSE" | "MOCK";
 
@@ -55,14 +56,9 @@ async function getJson<T>(url: string): Promise<T> {
   return data as T;
 }
 
-async function loadAccount(): Promise<LoadResult> {
-  const [positionData, cashData] = await Promise.all([
-    getJson<{ source: DnseSource; positions: ApiPosition[]; fetchedAt: string }>("/api/dnse/positions"),
-    getJson<{ source: DnseSource; accounts: ApiCash[] }>("/api/dnse/balances"),
-  ]);
-  const symbols = [...new Set(positionData.positions.map((item) => item.symbol))];
+async function loadLivePrices(symbols: string[]): Promise<Record<string, number>> {
   const quotes = await Promise.all(
-    symbols.map(async (symbol) => {
+    [...new Set(symbols)].map(async (symbol) => {
       try {
         const data = await getJson<{ quote?: { price?: number } }>(`/api/market/quote/${encodeURIComponent(symbol)}`);
         const price = Number(data.quote?.price);
@@ -72,11 +68,19 @@ async function loadAccount(): Promise<LoadResult> {
       }
     }),
   );
+  return Object.fromEntries(quotes.filter((quote) => quote !== null));
+}
+
+async function loadAccount(): Promise<LoadResult> {
+  const [positionData, cashData] = await Promise.all([
+    getJson<{ source: DnseSource; positions: ApiPosition[]; fetchedAt: string }>("/api/dnse/positions"),
+    getJson<{ source: DnseSource; accounts: ApiCash[] }>("/api/dnse/balances"),
+  ]);
   return {
     source: positionData.source,
     positions: positionData.positions,
     cash: cashData.accounts,
-    livePrices: Object.fromEntries(quotes.filter((quote) => quote !== null)),
+    livePrices: await loadLivePrices(positionData.positions.map((item) => item.symbol)),
     error: "",
     fetchedAt: positionData.fetchedAt,
   };
@@ -112,6 +116,16 @@ function useDnseState() {
   }, [requestId]);
 
   const refresh = useCallback(() => setRequestId((id) => id + 1), []);
+
+  // During the session, re-price held symbols every 10s (positions/cash stay as loaded).
+  useTradingInterval(() => {
+    const symbols = result?.positions.map((item) => item.symbol) ?? [];
+    if (!symbols.length) return;
+    loadLivePrices(symbols).then((prices) => {
+      if (Object.keys(prices).length)
+        setResult((current) => (current ? { ...current, livePrices: { ...current.livePrices, ...prices } } : current));
+    });
+  });
 
   const derived = useMemo(() => {
     const raw = result?.positions ?? [];

@@ -58,7 +58,8 @@ Mục tiêu: xem biểu đồ nến từng mã, giá vốn và khối lượng *
 
 ## Phase 5 — Realtime
 
-- [ ] Polling giá 5–10s trong giờ giao dịch (9:00–15:00 giờ VN, T2–T6), dừng ngoài giờ; cập nhật bảng và nến cuối.
+- [x] Polling giá 5–10s trong giờ giao dịch (9:00–15:00 giờ VN, T2–T6), dừng ngoài giờ; cập nhật bảng và nến cuối.
+  → Xong. `src/lib/market-hours.ts` (`useTradingInterval` 10s, bỏ qua khi tab ẩn/ngoài giờ). Polling giá vị thế (DnseProvider), thanh giá + nến cuối (`series.update`, không vẽ lại). Topbar hiện trạng thái phiên thật thay vì luôn "đang mở". Chưa nghỉ trưa 11:30–13:00, chưa tính ngày lễ. **Chưa quan sát chạy thật** (làm vào thứ Bảy); đã kiểm tra logic giờ bằng các mốc biên.
 - [ ] Watchlist (lưu MongoDB) với giá + sparkline.
 - [ ] Cập nhật MCP tool (`stockmate-mcp.ts`) để trợ lý trả lời được về vị thế DNSE thật.
 

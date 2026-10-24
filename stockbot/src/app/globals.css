@@ -183,3 +183,4 @@
 .history-stats strong{display:block;margin-top:5px;font-size:13px;font-weight:650;color:#3a443d}
 .history-stats strong.profit{color:#168265}.history-stats strong.loss-text{color:#d14e45}
 .history-chart{height:260px}
+.market-status.closed i{background:#c9b17a}
