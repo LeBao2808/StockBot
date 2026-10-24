@@ -1,12 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { CandleChart, type Candle } from "@/components/charts/CandleChart";
+import { BoardPanel } from "./BoardPanel";
 import { DnseSourceBadge } from "@/components/dnse/DnsePortfolio";
 import { useDnse } from "@/components/dnse/DnseProvider";
 import { usePortfolio } from "@/components/portfolio/PortfolioProvider";
 import { money } from "@/lib/format";
 import { useTradingInterval } from "@/lib/market-hours";
+
+// "Bước giá" panel on/off, remembered per browser. Defaults to on.
+const BOARD_KEY = "stockmate:show-board";
+const boardListeners = new Set<() => void>();
+function readBoardPreference() {
+  try {
+    return localStorage.getItem(BOARD_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+function useBoardPreference() {
+  const value = useSyncExternalStore(
+    (listener) => {
+      boardListeners.add(listener);
+      return () => boardListeners.delete(listener);
+    },
+    readBoardPreference,
+    () => true,
+  );
+  const set = (next: boolean) => {
+    try {
+      localStorage.setItem(BOARD_KEY, next ? "1" : "0");
+    } catch {
+      // Storage unavailable (private mode): the toggle still works for this page view.
+    }
+    boardListeners.forEach((listener) => listener());
+  };
+  return [value, set] as const;
+}
 
 const INDEX_SYMBOLS = new Set(["VNINDEX", "VN30", "HNXINDEX", "HNX30", "UPCOMINDEX", "VN100", "VNXALL"]);
 
@@ -93,6 +124,7 @@ export function StockDetail({ symbol }: { symbol: string }) {
   const type = INDEX_SYMBOLS.has(symbol) ? "INDEX" : "STOCK";
   const format = type === "STOCK" ? money : points;
   const { snapshot, error, loading } = useSnapshot(symbol, type);
+  const [showBoard, setShowBoard] = useBoardPreference();
   const { holdings } = usePortfolio();
   const { positionFor } = useDnse();
   // DNSE (Entrade X) is the source of truth; fall back to the manual portfolio.
@@ -172,7 +204,27 @@ export function StockDetail({ symbol }: { symbol: string }) {
         )}
       </section>
 
-      <CandleChart symbol={symbol} type={type} costPrice={holding?.price ?? null} />
+      <div className={`stock-workspace ${showBoard && type === "STOCK" ? "with-board" : ""}`}>
+        <CandleChart
+          symbol={symbol}
+          type={type}
+          costPrice={holding?.price ?? null}
+          toolbarExtra={
+            type === "STOCK" && (
+              <button
+                type="button"
+                className={`board-toggle ${showBoard ? "on" : ""}`}
+                aria-pressed={showBoard}
+                onClick={() => setShowBoard(!showBoard)}
+                title="Hiện/ẩn bảng bước giá bên cạnh biểu đồ"
+              >
+                ▤ Bước giá
+              </button>
+            )
+          }
+        />
+        {showBoard && type === "STOCK" && <BoardPanel symbol={symbol} />}
+      </div>
 
       {holding && (
         <section className="panel stock-position">

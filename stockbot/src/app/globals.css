@@ -201,3 +201,68 @@
 .symbol-suggestions .symbol-name{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:10px;color:#7d8780}
 .symbol-suggestions .exchange-badge{font-size:7px}
 .symbol-suggestions li.symbol-empty{display:block;cursor:default;font-size:10px;line-height:1.5;color:#929a95}
+
+/* Chart + "Bước giá" board */
+.chart-toolbar-end{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.board-toggle{height:24px;padding:0 9px;border:1px solid #e3e9e4;border-radius:6px;background:#fff;color:#7f8982;font-size:10px;font-weight:600;white-space:nowrap}
+.board-toggle.on{border-color:#bdd9c8;background:#edf6f1;color:#26795f}
+.stock-workspace{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+.stock-workspace.with-board{grid-template-columns:minmax(0,1fr) 300px}
+@media(max-width:1100px){.stock-workspace.with-board{grid-template-columns:minmax(0,1fr)}}
+.board-panel{padding:14px 14px 10px;font-variant-numeric:tabular-nums}
+.board-head{padding-bottom:10px;border-bottom:1px solid var(--line)}
+.board-title{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
+.board-title strong{font-size:15px;color:#26302a}
+.board-price{font-size:15px;font-weight:700}
+.board-change{font-size:11px;font-weight:650}
+.board-name{margin:5px 0 0;font-size:10px;line-height:1.4;color:#89928c}
+.board-next{margin:10px 0 2px;padding:8px 9px;border-radius:7px;background:#f6f8f6}
+.board-next>span{display:block;margin-bottom:6px;font-size:10px;font-weight:650;color:#4d5750}
+.board-trio{display:flex;justify-content:space-between;font-size:10px;color:#89928c}
+.board-trio b{margin-left:4px;font-size:11px}
+.board-depth{min-width:0;margin-top:8px}
+.board-depth th{height:24px;font-size:8px;padding:0 6px!important}
+.board-depth td{height:30px;padding:0 6px!important;font-size:11px;font-weight:600;color:#3a443d;border-top:1px solid #f1f3f1}
+.depth-cell{position:relative}
+.depth-cell span{position:relative}
+.depth-cell i{position:absolute;top:4px;bottom:4px;opacity:.14;border-radius:3px}
+.depth-cell.bid i{right:0;background:#2e9c6a}
+.depth-cell.ask i{left:0;background:#d65b4a}
+.board-balance{height:4px;margin-top:8px;border-radius:4px;background:#d65b4a;overflow:hidden}
+.board-balance i{display:block;height:100%;background:#2e9c6a}
+.board-balance-labels{display:flex;justify-content:space-between;margin-top:5px;font-size:9px;color:#89928c}
+.board-balance-labels b{color:#3a443d}
+.board-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 6px;margin:12px 0 0;padding-top:10px;border-top:1px solid var(--line)}
+.board-grid div,.board-stats div{display:flex;justify-content:space-between;align-items:baseline;gap:4px;margin:0}
+.board-grid dt,.board-stats dt{font-size:9px;color:#89928c}
+.board-grid dd{margin:0;font-size:12px;font-weight:700}
+.board-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin:12px 0 0;padding-top:10px;border-top:1px solid var(--line)}
+.board-stats dd{margin:0;font-size:11px;font-weight:650;color:#3a443d}
+.board-stats .wide{grid-column:span 2}
+.board-foot{margin:10px 0 0;font-size:8px;color:#a0a7a2}
+.tone-up{color:#1f9d63}.tone-down{color:#d64f42}.tone-ref{color:#c08a1e}.tone-ceiling{color:#b03fc9}.tone-floor{color:#1b9fc4}
+
+/* Hot stocks */
+.hot-section{margin-bottom:8px}
+.hot-section .section-title{margin-top:0}
+.hot-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:14px;align-items:stretch}
+@media(max-width:900px){.hot-layout{grid-template-columns:1fr}}
+.hot-spotlight{display:flex;flex-direction:column;gap:6px;color:inherit;text-decoration:none;background:linear-gradient(160deg,#fff 55%,#fff6ec);border-color:#f3e2cc}
+.hot-spotlight:hover{border-color:#e8c9a0}
+.hot-eyebrow{font-size:8px;font-weight:700;letter-spacing:.9px;color:#c0782a}
+.hot-symbol{display:flex;align-items:center;gap:8px}
+.hot-symbol strong{font-size:26px;letter-spacing:-.6px;color:#26302a}
+.hot-name{margin:0;font-size:10px;color:#89928c}
+.hot-price{display:flex;align-items:baseline;gap:10px;margin-top:4px}
+.hot-price strong{font-size:19px;color:#26302a}
+.hot-facts{display:grid;gap:5px;margin-top:6px}
+.hot-facts span{display:flex;justify-content:space-between;font-size:9px;color:#89928c}
+.hot-facts b{font-size:11px;color:#3a443d}
+.hot-spark .sparkline-svg{width:100%;height:40px;margin-top:4px}
+.hot-cta{margin-top:auto;font-size:10px;font-weight:650;color:#26795f}
+.hot-table-panel{padding:0 0 4px}
+.hot-tabs{padding:0 18px;border-bottom:1px solid var(--line)}
+.hot-row-symbol{display:flex;align-items:baseline;gap:6px}
+.hot-row-symbol strong{font-size:11px;color:#2e3731}
+.hot-row-symbol small{font-size:8px;color:#9aa19c}
+.hot-table td{height:38px}

@@ -63,12 +63,15 @@ export function CandleChart({
   type = "STOCK",
   costPrice,
   defaultResolution = "1D",
+  toolbarExtra,
 }: {
   symbol: string;
   type?: "STOCK" | "INDEX" | "DERIVATIVE";
   /** Draws a dashed "Giá vốn" line when the user holds this symbol. */
   costPrice?: number | null;
   defaultResolution?: string;
+  /** Extra controls rendered at the right end of the toolbar. */
+  toolbarExtra?: React.ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -243,9 +246,12 @@ export function CandleChart({
             </button>
           ))}
         </div>
-        <span className="chart-source">
-          {loading ? "Đang tải…" : `${state.candles.length} nến · DNSE`}
-        </span>
+        <div className="chart-toolbar-end">
+          <span className="chart-source">
+            {loading ? "Đang tải…" : `${state.candles.length} nến · DNSE`}
+          </span>
+          {toolbarExtra}
+        </div>
       </div>
       <div className="chart-canvas">
         {/* The library owns this node's children; React overlays live beside it. */}
