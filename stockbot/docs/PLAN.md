@@ -15,7 +15,8 @@ Mục tiêu: xem biểu đồ nến từng mã, giá vốn và khối lượng *
 
 ## Phase 0 — Tìm hiểu API
 
-- [ ] Đọc tài liệu Lightspeed API (https://hdsd.dnse.com.vn/san-pham-dich-vu/api-lightspeed) và ghi vào `docs/dnse-api.md`: endpoint danh sách deal/vị thế (giá vốn, khối lượng, khả dụng), endpoint nến OHLC lịch sử, endpoint giá realtime/topic MQTT, cách xác thực hiện tại (HMAC trong `dnse-market.ts`). Ghi rõ cái nào đã kiểm chứng bằng request thật, cái nào chưa.
+- [x] Đọc tài liệu Lightspeed API (https://hdsd.dnse.com.vn/san-pham-dich-vu/api-lightspeed) và ghi vào `docs/dnse-api.md`: endpoint danh sách deal/vị thế (giá vốn, khối lượng, khả dụng), endpoint nến OHLC lịch sử, endpoint giá realtime/topic MQTT, cách xác thực hiện tại (HMAC trong `dnse-market.ts`). Ghi rõ cái nào đã kiểm chứng bằng request thật, cái nào chưa.
+  → Xong. Docs V2 ở developers.dnse.com.vn. Đã gọi thật: `/accounts`, `/balances`, `/positions` (tài khoản đang **không có vị thế** → dùng mock), `/price/ohlc` (cần `type=STOCK`). Mẫu ở `docs/dnse-samples/`.
 
 ## Phase 1 — Dọn cấu trúc
 

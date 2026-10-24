@@ -1,0 +1,6 @@
+{
+  "stock": { "totalCash": 52000000, "availableCash": 48500000, "depositInterest": 37, "totalDebt": 0, "depositFeeAmount": 0, "secureAmount": 0, "orderSecured": 3500000, "withdrawableCash": 48500000, "cashDividendReceiving": 0 },
+  "derivative": { "pendingDepositWithdraw": 0, "remainSecure": 0, "usedSecure": 0, "pendingSecure": 0, "holdTaxAndFee": 0, "totalLoanDebt": 0 },
+  "bond": { "totalValue": 0 },
+  "egg": { "totalValue": 0 }
+}

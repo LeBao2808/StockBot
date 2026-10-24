@@ -1,0 +1,7 @@
+{
+  "positions": [
+    { "id": 1001, "symbol": "FPT", "accountNo": "0000000000", "status": "OPEN", "side": "NB", "loanPackageId": 1306, "accumulateQuantity": 500, "tradeQuantity": 500, "closedQuantity": 0, "openQuantity": 500, "overNightQuantity": 0, "costPrice": 61.2, "marketPrice": 57.0, "breakEvenPrice": 61.35, "createdDate": "2026-09-15T02:30:00Z", "modifiedDate": "2026-10-23T07:45:00Z" },
+    { "id": 1002, "symbol": "HPG", "accountNo": "0000000000", "status": "OPEN", "side": "NB", "loanPackageId": 1306, "accumulateQuantity": 2000, "tradeQuantity": 1500, "closedQuantity": 0, "openQuantity": 2000, "overNightQuantity": 0, "costPrice": 25.4, "marketPrice": 27.1, "breakEvenPrice": 25.48, "createdDate": "2026-08-04T03:10:00Z", "modifiedDate": "2026-10-23T07:45:00Z" },
+    { "id": 1003, "symbol": "ACB", "accountNo": "0000000000", "status": "OPEN", "side": "NB", "loanPackageId": 1306, "accumulateQuantity": 1000, "tradeQuantity": 1000, "closedQuantity": 0, "openQuantity": 1000, "overNightQuantity": 0, "costPrice": 23.1, "marketPrice": 23.35, "breakEvenPrice": 23.17, "createdDate": "2026-07-20T02:45:00Z", "modifiedDate": "2026-10-23T07:45:00Z" }
+  ]
+}
