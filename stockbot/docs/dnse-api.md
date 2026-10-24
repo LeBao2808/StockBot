@@ -55,3 +55,17 @@ DNSE đẩy giá qua WebSocket/MQTT (`/docs/guide/market-data/connect`). Vercel 
 
 ## Mẫu dữ liệu
 `docs/dnse-samples/` — `positions-stock.json` là dữ liệu **giả** theo đúng schema (tài khoản thật đang rỗng); `ohlc-fpt-1d.json` là dạng thật.
+
+## Biến môi trường mới (thêm vào `.env` / Vercel)
+
+| Biến | Ý nghĩa |
+|---|---|
+| `DNSE_ACCOUNT_NO` | (tùy chọn) Chỉ đọc 1 tiểu khoản. |
+| `DNSE_MOCK=1` | Dùng dữ liệu mẫu `docs/dnse-samples/` thay vì gọi tài khoản thật (tự bật khi thiếu API key). Tiện để xem giao diện khi tài khoản chưa có vị thế. |
+| `STOCKMATE_DASHBOARD_PASSWORD` | Bật HTTP Basic auth cho toàn bộ web (trừ `/api/mcp`). **Bắt buộc trước khi deploy công khai**: trên Vercel, nếu thiếu biến này thì `/api/dnse/*` trả 403. |
+
+## API nội bộ
+
+- `GET /api/dnse/positions` → `{ source: "DNSE"|"MOCK", positions: [{ id, accountNo, symbol, status, quantity, availableQuantity, costPrice, marketPrice, breakEvenPrice, openedAt }], fetchedAt }` (giá VND)
+- `GET /api/dnse/balances` → `{ source, accounts: [{ accountNo, totalCash, availableCash, withdrawableCash, totalDebt, orderSecured, cashDividendReceiving }], fetchedAt }`
+- `GET /api/market/ohlc/{symbol}?resolution=1D&type=STOCK&from=&to=` → `{ candles: [{ time, open, high, low, close, volume }], currency }`

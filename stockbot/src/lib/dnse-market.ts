@@ -26,7 +26,7 @@ function signRequest(path: string, date: string, nonce: string, secret: string) 
   return `Signature keyId="${process.env.DNSE_API_KEY}",algorithm="hmac-sha256",headers="(request-target) date",signature="${signature}",nonce="${nonce}"`;
 }
 
-async function getDnseJson(path: string, query = "") {
+export async function getDnseJson(path: string, query = "") {
   const apiKey = process.env.DNSE_API_KEY;
   const apiSecret = process.env.DNSE_API_SECRET;
   if (!apiKey || !apiSecret) throw new Error("Thiếu DNSE_API_KEY hoặc DNSE_API_SECRET trong .env. Hãy đăng ký Lightspeed API của DNSE.");
@@ -66,7 +66,7 @@ async function getDnseJson(path: string, query = "") {
   }
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
+export function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
@@ -233,8 +233,8 @@ function extractBalanceSections(payload: unknown): DnseAccountBalance["sections"
   return sections;
 }
 
-/** Read-only account cash/balance data. No trading token or order permission is used. */
-export async function getDnseAccountBalances(): Promise<DnseAccountBalance[]> {
+/** Sub-account numbers for this API key, narrowed to DNSE_ACCOUNT_NO when set. */
+export async function getDnseAccountNos(): Promise<string[]> {
   const accountPayload = await getDnseJson("/accounts");
   const accounts = extractAccounts(accountPayload);
   if (!accounts.length) throw new Error("DNSE không trả về tiểu khoản nào cho API Key này.");
@@ -245,9 +245,17 @@ export async function getDnseAccountBalances(): Promise<DnseAccountBalance[]> {
     : accounts;
   if (!eligibleAccounts.length) throw new Error("DNSE_ACCOUNT_NO không khớp với tiểu khoản nào trong tài khoản DNSE.");
 
-  return Promise.all(eligibleAccounts.map(async (account) => {
+  return eligibleAccounts.map((account) => {
     const accountNo = String(account.id ?? account.accountNo ?? account.accountNumber ?? "");
     if (!accountNo) throw new Error("DNSE trả tiểu khoản thiếu số tài khoản.");
+    return accountNo;
+  });
+}
+
+/** Read-only account cash/balance data. No trading token or order permission is used. */
+export async function getDnseAccountBalances(): Promise<DnseAccountBalance[]> {
+  const accountNos = await getDnseAccountNos();
+  return Promise.all(accountNos.map(async (accountNo) => {
     const balancePayload = await getDnseJson(`/accounts/${encodeURIComponent(accountNo)}/balances`);
     return { accountNo, sections: extractBalanceSections(balancePayload) };
   }));

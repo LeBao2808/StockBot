@@ -38,9 +38,12 @@ Mục tiêu: xem biểu đồ nến từng mã, giá vốn và khối lượng *
 
 ## Phase 3 — Giá vốn thật từ tài khoản DNSE
 
-- [ ] `src/lib/dnse-account.ts`: `getDnsePositions()` → `{ accountNo, symbol, quantity, availableQuantity, costPrice, marketPrice }[]`, chỉ dùng GET, tôn trọng `DNSE_ACCOUNT_NO`.
-- [ ] Chế độ mock: khi thiếu credential hoặc `DNSE_MOCK=1` thì đọc từ `docs/dnse-samples/`, UI hiện nhãn "Dữ liệu mẫu".
-- [ ] API route `GET /api/dnse/positions` và `GET /api/dnse/balances`.
+- [x] `src/lib/dnse-account.ts`: `getDnsePositions()` → `{ accountNo, symbol, quantity, availableQuantity, costPrice, marketPrice }[]`, chỉ dùng GET, tôn trọng `DNSE_ACCOUNT_NO`.
+  → Xong. Đọc `/accounts/{no}/positions?marketType=STOCK` cho mọi tiểu khoản (lọc theo `DNSE_ACCOUNT_NO`), bỏ vị thế CLOSED/KL 0. Thêm `getDnseCash()` (tiền cơ sở). Tách `getDnseAccountNos()` dùng chung với `getDnseAccountBalances` (MCP).
+- [x] Chế độ mock: khi thiếu credential hoặc `DNSE_MOCK=1` thì đọc từ `docs/dnse-samples/`, UI hiện nhãn "Dữ liệu mẫu".
+  → Xong. `isDnseMock()`; response có `source: "MOCK"` để UI gắn nhãn (nhãn làm ở Phase 4).
+- [x] API route `GET /api/dnse/positions` và `GET /api/dnse/balances`.
+  → Xong, test cả thật (tài khoản thật: 0 vị thế, có tiền) và mock. **Thêm `src/proxy.ts`**: Basic auth khi đặt `STOCKMATE_DASHBOARD_PASSWORD`; trên Vercel thiếu mật khẩu thì `/api/dnse/*` trả 403 — để không lộ số dư tài khoản ra internet. Biến mới ghi trong `docs/dnse-api.md`.
 
 ## Phase 4 — Dashboard danh mục thật
 
