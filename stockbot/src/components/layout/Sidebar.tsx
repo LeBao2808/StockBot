@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { sectionHrefs, sectionLabels } from "@/lib/sections";
 import type { AppSection } from "@/lib/types";
+import { SymbolSearch } from "./SymbolSearch";
 
 const sectionIcons: Record<AppSection, string> = {
   overview: "▦",
@@ -15,16 +15,6 @@ const sectionIcons: Record<AppSection, string> = {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const [symbol, setSymbol] = useState("");
-
-  function openSymbol(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = symbol.trim().toUpperCase();
-    if (!/^[A-Z0-9]{2,12}$/.test(value)) return;
-    setSymbol("");
-    router.push(`/stock/${value}`);
-  }
 
   return (
     <aside className="sidebar">
@@ -35,22 +25,7 @@ export function Sidebar() {
           <small>ĐẦU TƯ CÓ KẾ HOẠCH</small>
         </span>
       </Link>
-      <form className="symbol-search" onSubmit={openSymbol} role="search">
-        <label className="sr-only" htmlFor="symbol-search">
-          Tra mã cổ phiếu
-        </label>
-        <input
-          id="symbol-search"
-          value={symbol}
-          onChange={(event) => setSymbol(event.target.value.toUpperCase())}
-          placeholder="Tra mã, ví dụ FPT"
-          maxLength={12}
-          autoComplete="off"
-        />
-        <button type="submit" aria-label="Xem biểu đồ">
-          →
-        </button>
-      </form>
+      <SymbolSearch />
       <div className="workspace-label">KHÔNG GIAN CỦA BẠN</div>
       <nav className="nav-list" aria-label="Điều hướng chính">
         {(Object.keys(sectionLabels) as AppSection[]).map((section) => (

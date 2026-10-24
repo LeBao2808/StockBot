@@ -119,10 +119,9 @@
 .chat-expand:focus-visible,.chat-close:focus-visible{outline:2px solid #76aa8b;outline-offset:1px}
 
 /* Sidebar symbol search */
-.symbol-search{display:flex;align-items:center;gap:4px;margin:-28px 2px 22px;height:34px;padding:0 4px 0 10px;border:1px solid #e3e9e4;border-radius:8px;background:#fafcfa}
+.symbol-search{position:relative;display:flex;align-items:center;gap:4px;margin:-28px 2px 22px;height:34px;padding:0 4px 0 10px;border:1px solid #e3e9e4;border-radius:8px;background:#fafcfa}
 .symbol-search:focus-within{border-color:#5b9d7b;box-shadow:0 0 0 2px #e4f2e9}
-.symbol-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:11px;color:#313a34;text-transform:uppercase}
-.symbol-search input::placeholder{text-transform:none;color:#a0a7a2}
+.symbol-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:11px;color:#313a34}
 .symbol-search button{width:26px;height:26px;border:0;border-radius:6px;background:#edf6f1;color:#26795f;font-weight:700}
 @media(max-width:780px){.symbol-search{display:none}}
 
@@ -195,3 +194,10 @@
 .watchlist-alert{margin:0 18px 12px}
 .sparkline-cell{width:130px}
 .sparkline-svg{display:block;width:110px;height:30px}
+.symbol-suggestions{position:absolute;z-index:20;top:calc(100% + 6px);left:-2px;width:300px;max-height:360px;overflow-y:auto;margin:0;padding:5px;list-style:none;background:#fff;border:1px solid #e3e9e4;border-radius:10px;box-shadow:0 12px 32px #14251d24}
+.symbol-suggestions li{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:8px;padding:8px 9px;border-radius:7px;cursor:pointer}
+.symbol-suggestions li.active{background:#edf6f1}
+.symbol-suggestions li strong{font-size:11px;color:#26302a}
+.symbol-suggestions .symbol-name{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:10px;color:#7d8780}
+.symbol-suggestions .exchange-badge{font-size:7px}
+.symbol-suggestions li.symbol-empty{display:block;cursor:default;font-size:10px;line-height:1.5;color:#929a95}

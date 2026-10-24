@@ -260,3 +260,51 @@ export async function getDnseAccountBalances(): Promise<DnseAccountBalance[]> {
     return { accountNo, sections: extractBalanceSections(balancePayload) };
   }));
 }
+
+export type Instrument = {
+  symbol: string;
+  name: string;
+  exchange: "HOSE" | "HNX" | "UPCOM" | "INDEX";
+  type: "STOCK" | "ETF" | "INDEX";
+};
+
+const EXCHANGES: Record<string, Instrument["exchange"]> = { STO: "HOSE", STX: "HNX", UPX: "UPCOM" };
+const INDICES: Instrument[] = [
+  { symbol: "VNINDEX", name: "Chỉ số VN-Index", exchange: "INDEX", type: "INDEX" },
+  { symbol: "VN30", name: "Chỉ số VN30", exchange: "INDEX", type: "INDEX" },
+  { symbol: "HNXINDEX", name: "Chỉ số HNX-Index", exchange: "INDEX", type: "INDEX" },
+  { symbol: "HNX30", name: "Chỉ số HNX30", exchange: "INDEX", type: "INDEX" },
+  { symbol: "UPCOMINDEX", name: "Chỉ số UPCoM-Index", exchange: "INDEX", type: "INDEX" },
+];
+const INSTRUMENT_TTL = 12 * 3600_000;
+let instrumentCache: { at: number; list: Instrument[] } | null = null;
+
+async function getInstrumentGroup(groupId: "ST" | "EF") {
+  const list: Instrument[] = [];
+  for (let page = 1; page <= 5; page++) {
+    const payload = asRecord(await getDnseJson("/market/instruments", `?securityGroupId=${groupId}&limit=1000&page=${page}`));
+    const data = Array.isArray(payload?.data) ? payload.data : [];
+    for (const raw of data) {
+      const item = asRecord(raw);
+      const exchange = EXCHANGES[String(item?.marketId)];
+      if (!item || typeof item.symbol !== "string" || !exchange) continue;
+      list.push({
+        symbol: item.symbol.toUpperCase(),
+        name: String(item.shortName || item.name || ""),
+        exchange,
+        type: groupId === "EF" ? "ETF" : "STOCK",
+      });
+    }
+    if (data.length < 1000 || list.length >= Number(payload?.total ?? 0)) break;
+  }
+  return list;
+}
+
+/** Listed stocks, ETFs and main indices for symbol search; cached in memory for 12h. */
+export async function getDnseInstruments(): Promise<Instrument[]> {
+  if (instrumentCache && Date.now() - instrumentCache.at < INSTRUMENT_TTL) return instrumentCache.list;
+  const [stocks, etfs] = await Promise.all([getInstrumentGroup("ST"), getInstrumentGroup("EF")]);
+  const list = [...INDICES, ...stocks, ...etfs];
+  instrumentCache = { at: Date.now(), list };
+  return list;
+}
