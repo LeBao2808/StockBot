@@ -74,7 +74,22 @@ Mục tiêu: xem biểu đồ nến từng mã, giá vốn và khối lượng *
 ## Blocked
 
 - **MongoDB không kết nối được từ máy local** (2026-10-24): `GET /api/portfolio` trả 503 sau 30s ("Hãy kiểm tra kết nối database"). Lỗi có sẵn từ trước, không do refactor. Cần người dùng: kiểm tra `MONGODB_URI`, whitelist IP hiện tại trong MongoDB Atlas → Network Access. Ảnh hưởng: danh mục nhập tay, snapshot, watchlist chưa test thật được; phần DNSE không bị ảnh hưởng.
+- **Chưa chạy `npm run db:push`** cho model `WatchlistItem` mới — lệnh này ghi vào database thật, để người dùng tự chạy sau khi DB kết nối được.
 
 ## Báo cáo
 
-_(agent ghi khi xong)_
+**2026-10-24 — hoàn thành toàn bộ Phase 0–5** trên branch `feat/trading` (chưa push, chưa merge). Mỗi task 1 commit; `npm run lint` + `npm run build` pass ở mọi commit.
+
+Đã chạy được với dữ liệu thật:
+- Biểu đồ nến DNSE cho mọi mã + chỉ số (`/stock/FPT`, `/stock/VNINDEX`), khung 1 phút → tuần.
+- Đọc tài khoản DNSE thật: tiền OK; vị thế hiện **rỗng** (tài khoản chưa giữ cổ phiếu) → xem giao diện đầy đủ bằng `DNSE_MOCK=1`.
+- Trợ lý trả lời "đang giữ mã nào trên Entrade X" qua tool MCP mới.
+
+Cần bạn làm khi về:
+1. **Sửa kết nối MongoDB** (xem Blocked), rồi chạy `npm run db:push` để tạo collection `WatchlistItem`.
+2. Sau đó kiểm tra: lưu snapshot (trang Hiệu suất → "Chụp lại") và watchlist (trang Thị trường) — 2 phần này mới chỉ test được nhánh báo lỗi.
+3. Trước khi deploy Vercel: đặt `STOCKMATE_DASHBOARD_PASSWORD` (nếu không, `/api/dnse/*` trả 403 trên Vercel). Lưu ý DNSE có thể chặn IP Singapore.
+4. Xem thử trong giờ giao dịch (T2–T6, 9h–15h) để xác nhận giá/nến tự cập nhật mỗi 10s — chưa quan sát được vì làm vào thứ Bảy.
+5. Khi tài khoản có cổ phiếu: kiểm tra đơn vị `costPrice` của `/positions` (code giả định < 1.000 là nghìn VND).
+
+Chạy thử nhanh: `npm run build && npm start` (hoặc `DNSE_MOCK=1 npm start` để thấy vị thế mẫu).
