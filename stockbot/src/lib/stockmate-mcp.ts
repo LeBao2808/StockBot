@@ -185,28 +185,50 @@ export function createStockMateMcpServer() {
   const server = new McpServer({ name: "stockmate-portfolio", version: "1.0.0" });
   const symbolSchema = z.object({ symbol: z.string().min(1).max(12).describe("Mã cổ phiếu, ví dụ FPT") });
   const quoteSchema = symbolSchema.extend({ market: z.enum(["VN", "US"]).describe("VN cho HOSE/HNX/UPCoM; US cho cổ phiếu Mỹ") });
-  registerToolHandler(server, "compare_portfolio_holding", "So sánh mã đã lưu với giá hiện tại: dùng DNSE cho mã Việt Nam (VND), Finnhub cho mã Mỹ (USD), tính giá vốn, giá trị hiện tại và lãi/lỗ.", symbolSchema, ({ symbol }) => compareHolding(symbol));
+  registerToolHandler(server, "compare_portfolio_holding", "So sánh một mã trong danh mục NHẬP TAY với giá hiện tại: dùng DNSE cho mã Việt Nam (VND), Finnhub cho mã Mỹ (USD), tính giá vốn, giá trị hiện tại và lãi/lỗ. Dùng khi người dùng hỏi giá vốn/lãi lỗ của một mã cụ thể đã lưu (ví dụ AAPL). Với vị thế thật trên DNSE/Entrade X thì dùng get_dnse_positions.", symbolSchema, ({ symbol }) => compareHolding(symbol));
   registerToolHandler(server, "get_stock_quote", "Tra cứu giá cổ phiếu. Chọn market VN cho mã Việt Nam trên HOSE/HNX/UPCoM (DNSE), hoặc US cho mã Mỹ (Finnhub). FPT là mã VN; AAPL là mã US.", quoteSchema, ({ symbol, market }) => getStockQuote(symbol, market));
-  registerToolHandler(server, "summarize_portfolio", "Tóm tắt danh mục và giá từ DNSE cho mã Việt Nam, Finnhub cho mã Mỹ.", z.object({}), () => summarizePortfolio());
+  registerToolHandler(server, "summarize_portfolio", "Tóm tắt danh mục NHẬP TAY (các mã người dùng tự lưu, gồm cả cổ phiếu Mỹ) kèm giá hiện tại từ DNSE cho mã Việt Nam, Finnhub cho mã Mỹ. Dùng khi người dùng muốn tổng quan danh mục đã lưu.", z.object({}), () => summarizePortfolio());
   registerToolHandler(server, "get_dnse_cash_balance", "Đọc số dư tiền và tài sản trong các tiểu khoản DNSE của người dùng. Chỉ dùng khi người dùng hỏi còn bao nhiêu tiền, số dư tài khoản chứng khoán, hoặc tiền trong ví DNSE. Chỉ đọc, không đặt/hủy lệnh. Nêu rõ các mục DNSE trả về và không gọi sức mua là tiền mặt.", z.object({}), () => getDnseCashBalance());
   registerToolHandler(server, "get_dnse_positions", "Đọc các vị thế cổ phiếu đang nắm giữ trên tài khoản DNSE (Entrade X) thật: mã, khối lượng, giá vốn, giá hiện tại, lãi/lỗ và tổng tài sản. Dùng khi người dùng hỏi đang giữ mã nào, giá vốn, lãi lỗ trên DNSE/Entrade X. Chỉ đọc, không đặt/hủy lệnh.", z.object({}), () => getDnsePositionsSummary());
   return server;
 }
 
-/** StockMate's assistant calls MCP tools through the official MCP JSON-RPC client/server protocol. */
-export async function callStockMateTool(name: StockMateToolName, args: Record<string, string> = {}): Promise<StockMateToolOutput> {
+/** Tools whose results are the user's own brokerage data: never sent to the LLM or shown in traces. */
+export const PRIVATE_TOOLS: ReadonlySet<string> = new Set(["get_dnse_cash_balance", "get_dnse_positions"]);
+
+export type McpToolInfo = { name: string; description: string; inputSchema: Record<string, unknown> };
+
+/**
+ * One MCP client session for the in-app assistant, connected over the official
+ * JSON-RPC protocol (in-memory transport). The assistant discovers tools with
+ * `tools/list` and runs them with `tools/call` — the same calls an external MCP
+ * client makes against /api/mcp.
+ */
+export async function openStockMateSession() {
   const server = createStockMateMcpServer();
   const client = new Client({ name: "stockmate-assistant", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  try {
-    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
-    const result = await client.callTool({ name, arguments: args });
-    const text = result.content.find((item) => item.type === "text")?.text;
-    if (!text) throw new Error("MCP tool không trả nội dung kết quả.");
-    const parsed = JSON.parse(text) as StockMateToolOutput;
-    if (result.isError) throw new Error(parsed.answer);
-    return parsed;
-  } finally {
-    await Promise.allSettled([client.close(), server.close()]);
-  }
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+
+  return {
+    async listTools(): Promise<McpToolInfo[]> {
+      const { tools } = await client.listTools();
+      return tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description ?? "",
+        inputSchema: tool.inputSchema as Record<string, unknown>,
+      }));
+    },
+    async callTool(name: string, args: Record<string, unknown> = {}): Promise<StockMateToolOutput> {
+      const result = await client.callTool({ name, arguments: args });
+      const text = result.content.find((item) => item.type === "text")?.text;
+      if (!text) throw new Error("MCP tool không trả nội dung kết quả.");
+      const parsed = JSON.parse(text) as StockMateToolOutput;
+      if (result.isError) throw new Error(parsed.answer);
+      return parsed;
+    },
+    async close() {
+      await Promise.allSettled([client.close(), server.close()]);
+    },
+  };
 }

@@ -25,11 +25,18 @@ export type PortfolioComparison = {
   currencyMismatch: boolean;
 };
 
+/** One step of how the assistant answered: MCP tool discovery, an LLM round, or an MCP tool call. */
+export type TraceStep =
+  | { kind: "list"; ms: number; tools: string[] }
+  | { kind: "llm"; ms: number; decision: string[] }
+  | { kind: "call"; ms: number; name: string; args: Record<string, unknown>; ok: boolean; result?: string; redacted?: boolean };
+
 export type ChatMessage = {
   role: "assistant" | "user";
   text: string;
   comparison?: PortfolioComparison;
   streaming?: boolean;
+  trace?: TraceStep[];
 };
 
 export type UsQuote = {

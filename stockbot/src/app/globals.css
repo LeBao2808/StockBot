@@ -266,3 +266,28 @@
 .hot-row-symbol strong{font-size:11px;color:#2e3731}
 .hot-row-symbol small{font-size:8px;color:#9aa19c}
 .hot-table td{height:38px}
+
+/* MCP tool trace in chat */
+.tool-trace{margin-top:8px;border:1px solid #e3ebe6;border-radius:8px;background:#f8fbf9;font-size:10px;color:#4d5750}
+.tool-trace summary{display:flex;align-items:center;gap:7px;padding:7px 9px;cursor:pointer;list-style:none;color:#5f6a63;font-weight:600}
+.tool-trace summary::-webkit-details-marker{display:none}
+.tool-trace summary::after{content:"▾";margin-left:auto;color:#9aa19c}
+.tool-trace[open] summary::after{content:"▴"}
+.trace-badge{padding:2px 6px;border-radius:4px;background:#28795f;color:#fff;font-size:8px;letter-spacing:.6px}
+.tool-trace ol{margin:0;padding:2px 9px 9px;list-style:none;display:grid;gap:8px}
+.trace-step{display:grid;grid-template-columns:18px minmax(0,1fr);gap:7px}
+.trace-index{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#e4f0e9;color:#26795f;font-size:9px;font-weight:700}
+.trace-failed .trace-index{background:#fbe3df;color:#c0473b}
+.trace-body{min-width:0}
+.trace-line{display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-height:18px}
+.trace-method,.trace-tool,.trace-chips code{font-family:var(--font-geist-mono),ui-monospace,monospace;font-size:9px}
+.trace-method{color:#7667bd;font-weight:700}
+.trace-tool{padding:1px 5px;border-radius:4px;background:#eef4ff;color:#3a5fa8;font-weight:700}
+.trace-actor{font-weight:700;color:#3a443d}
+.trace-arrow{color:#a0a7a2}
+.trace-ms{margin-left:auto;color:#9aa19c;font-variant-numeric:tabular-nums}
+.trace-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.trace-chips code{padding:1px 5px;border-radius:4px;background:#fff;border:1px solid #e3ebe6;color:#5f6a63}
+.trace-label{margin:6px 0 3px;font-size:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#9aa19c}
+.trace-body pre{margin:0;max-height:180px;overflow:auto;padding:6px 8px;border-radius:6px;background:#fff;border:1px solid #e3ebe6;font-family:var(--font-geist-mono),ui-monospace,monospace;font-size:9px;line-height:1.45;white-space:pre-wrap;word-break:break-word;color:#3a443d}
+.trace-redacted{margin:0;padding:6px 8px;border-radius:6px;background:#fff8ec;color:#8a6a2c}

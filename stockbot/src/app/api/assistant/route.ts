@@ -1,48 +1,61 @@
 import { NextResponse } from "next/server";
-import { callStockMateTool, type HoldingComparison, type StockMateToolName, type StockMateToolOutput } from "@/lib/stockmate-mcp";
+import {
+  openStockMateSession,
+  PRIVATE_TOOLS,
+  type HoldingComparison,
+  type McpToolInfo,
+  type StockMateToolOutput,
+} from "@/lib/stockmate-mcp";
+import type { TraceStep } from "@/lib/types";
 
 export const runtime = "nodejs";
 
 const instructions = `You are StockMate, a friendly Vietnamese stock portfolio assistant. Speak naturally, clearly, and warmly, with light empathy; avoid sounding theatrical or overly sentimental. Answer in Vietnamese unless the user writes in another language. For current market prices, portfolio positions, cost basis, profit/loss, or DNSE cash balance, use the relevant tool instead of guessing. Never invent prices, balances, or holdings. When reporting DNSE balances, keep the returned balance categories separate, mask account numbers, and do not present buying power or margin as cash available. Market data and portfolio calculations are informational, not a recommendation to buy or sell. Do not claim to have executed an action unless a tool did it.`;
 
-const tools = [
-  {
-    name: "compare_portfolio_holding",
-    description: "Compare a saved position with its current quote. Use when the user asks about their cost basis, position value, or profit/loss for a ticker. The MCP tool selects DNSE for Vietnamese VND holdings and Finnhub for US USD holdings.",
-    parameters: {
-      type: "OBJECT",
-      properties: { symbol: { type: "STRING", description: "Ticker symbol such as AAPL" } },
-      required: ["symbol"],
-    },
-  },
-  {
-    name: "get_stock_quote",
-    description: "Get a stock's latest price when the user asks for a quote without asking about their portfolio. Choose market=VN for Vietnamese tickers on HOSE/HNX/UPCoM (e.g. FPT, VNM, HPG); choose market=US for US tickers (e.g. AAPL, MSFT). Vietnamese quotes use DNSE; US quotes use Finnhub.",
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        symbol: { type: "STRING", description: "Ticker symbol such as FPT or AAPL" },
-        market: { type: "STRING", enum: ["VN", "US"], description: "VN for Vietnamese exchanges; US for US exchanges" },
-      },
-      required: ["symbol", "market"],
-    },
-  },
-  {
-    name: "summarize_portfolio",
-    description: "Read and summarize the user's saved portfolio. Use when they ask for an overview or summary of their holdings. Vietnamese holdings use DNSE; US holdings use Finnhub.",
-    parameters: { type: "OBJECT", properties: {}, required: [] },
-  },
-  {
-    name: "get_dnse_cash_balance",
-    description: "Read the user's actual DNSE sub-account balance using DNSE OpenAPI. Use when they ask how much cash/money remains in their brokerage wallet or for account cash balance. This is read-only. Keep DNSE balance categories separate and do not equate buying power with cash.",
-    parameters: { type: "OBJECT", properties: {}, required: [] },
-  },
-  {
-    name: "get_dnse_positions",
-    description: "Read the stock positions the user actually holds in their DNSE (Entrade X) account: symbols, quantity, average cost, current price, profit/loss and net assets. Use when they ask what they hold on DNSE/Entrade X, their real cost basis there, or real P/L. Read-only.",
-    parameters: { type: "OBJECT", properties: {}, required: [] },
-  },
-];
+type GeminiSchema = {
+  type: string;
+  description?: string;
+  enum?: string[];
+  properties?: Record<string, GeminiSchema>;
+  required?: string[];
+  items?: GeminiSchema;
+};
+type GeminiFunction = { name: string; description: string; parameters: GeminiSchema };
+
+/** Converts an MCP tool's JSON Schema into the OpenAPI-style subset Gemini accepts. */
+function toGeminiSchema(schema: Record<string, unknown>): GeminiSchema {
+  const type = typeof schema.type === "string" ? schema.type.toUpperCase() : "STRING";
+  const result: GeminiSchema = { type };
+  if (typeof schema.description === "string") result.description = schema.description;
+  if (Array.isArray(schema.enum)) result.enum = schema.enum.map(String);
+  if (schema.properties && typeof schema.properties === "object") {
+    result.properties = Object.fromEntries(
+      Object.entries(schema.properties as Record<string, Record<string, unknown>>).map(([key, value]) => [key, toGeminiSchema(value)]),
+    );
+    result.required = Array.isArray(schema.required) ? schema.required.map(String) : [];
+  }
+  if (schema.items && typeof schema.items === "object") result.items = toGeminiSchema(schema.items as Record<string, unknown>);
+  return result;
+}
+
+const toGeminiFunction = (tool: McpToolInfo): GeminiFunction => ({
+  name: tool.name,
+  description: tool.description,
+  parameters: toGeminiSchema(tool.inputSchema),
+});
+
+const TRACE_RESULT_LIMIT = 1200;
+
+function summarizeResult(result: StockMateToolOutput) {
+  const text = JSON.stringify(result, null, 2);
+  return text.length > TRACE_RESULT_LIMIT ? `${text.slice(0, TRACE_RESULT_LIMIT)}\n…` : text;
+}
+
+async function timed<T>(task: () => Promise<T>): Promise<[T, number]> {
+  const started = performance.now();
+  const value = await task();
+  return [value, Math.round(performance.now() - started)];
+}
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
 type GeminiPart = { text?: string; functionCall?: { name: string; args?: Record<string, unknown>; id?: string } };
@@ -59,7 +72,7 @@ function readHistory(value: unknown): ChatTurn[] {
   });
 }
 
-async function generateGemini(contents: GeminiContent[], apiKey: string, model: string): Promise<GeminiContent> {
+async function generateGemini(contents: GeminiContent[], tools: GeminiFunction[], apiKey: string, model: string): Promise<GeminiContent> {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
@@ -99,44 +112,78 @@ export async function POST(request: Request) {
       { role: "user", parts: [{ text: question }] },
     ];
 
-    let content = await generateGemini(contents, apiKey, model);
-    let comparison: HoldingComparison | undefined;
-    let fetchedAt: string | null | undefined;
-    let source = "Gemini";
+    const trace: TraceStep[] = [];
+    const mcp = await openStockMateSession();
+    try {
+      // Discover tools from the MCP server instead of a hand-written list.
+      const [mcpTools, listMs] = await timed(() => mcp.listTools());
+      trace.push({ kind: "list", ms: listMs, tools: mcpTools.map((tool) => tool.name) });
+      const tools = mcpTools.map(toGeminiFunction);
 
-    for (let round = 0; round < 3; round += 1) {
-      const calls = content.parts.filter((part) => part.functionCall?.name);
-      if (!calls.length) break;
-      contents.push(content);
-      const functionResponses: GeminiPart[] = [];
+      const ask = async () => {
+        const [reply, ms] = await timed(() => generateGemini(contents, tools, apiKey, model));
+        const calls = reply.parts.flatMap((part) => (part.functionCall?.name ? [part.functionCall.name] : []));
+        trace.push({ kind: "llm", ms, decision: calls.length ? calls : ["trả lời"] });
+        return reply;
+      };
 
-      for (const part of calls) {
-        const call = part.functionCall!;
-        let toolResult: StockMateToolOutput;
-        try {
-          toolResult = await callStockMateTool(call.name as StockMateToolName, (call.args || {}) as Record<string, string>);
-        } catch (error) {
-          toolResult = {
-            answer: error instanceof Error ? error.message : "StockMate chưa lấy được dữ liệu cho câu hỏi này.",
-            source: "MCP + DNSE",
-          };
+      let content = await ask();
+      let comparison: HoldingComparison | undefined;
+      let fetchedAt: string | null | undefined;
+      let source = "Gemini";
+
+      for (let round = 0; round < 3; round += 1) {
+        const calls = content.parts.filter((part) => part.functionCall?.name);
+        if (!calls.length) break;
+        contents.push(content);
+        const functionResponses: GeminiPart[] = [];
+
+        for (const part of calls) {
+          const call = part.functionCall!;
+          const args = call.args || {};
+          const isPrivate = PRIVATE_TOOLS.has(call.name);
+          let toolResult: StockMateToolOutput;
+          let ok = true;
+          const started = performance.now();
+          try {
+            toolResult = await mcp.callTool(call.name, args);
+          } catch (error) {
+            ok = false;
+            toolResult = {
+              answer: error instanceof Error ? error.message : "StockMate chưa lấy được dữ liệu cho câu hỏi này.",
+              source: "MCP + DNSE",
+            };
+          }
+          trace.push({
+            kind: "call",
+            ms: Math.round(performance.now() - started),
+            name: call.name,
+            args,
+            ok,
+            ...(isPrivate ? { redacted: true } : { result: summarizeResult(toolResult) }),
+          });
+          // Keep personal brokerage balances and positions inside StockMate; don't send the MCP result back to Gemini for paraphrasing.
+          if (isPrivate) {
+            return NextResponse.json({ answer: toolResult.answer, source: "MCP + DNSE", fetchedAt: toolResult.fetchedAt, trace });
+          }
+          if (toolResult.comparison) comparison = toolResult.comparison;
+          if (toolResult.fetchedAt) fetchedAt = toolResult.fetchedAt;
+          source = toolResult.source === "MCP + DNSE" ? "Gemini + MCP + DNSE" : "Gemini + MCP + Finnhub";
+          functionResponses.push({ functionResponse: { name: call.name, ...(call.id ? { id: call.id } : {}), response: toolResult as unknown as Record<string, unknown> } } as GeminiPart);
         }
-        // Keep personal brokerage balances and positions inside StockMate; don't send the MCP result back to Gemini for paraphrasing.
-        if (call.name === "get_dnse_cash_balance" || call.name === "get_dnse_positions") {
-          return NextResponse.json({ answer: toolResult.answer, source: "MCP + DNSE", fetchedAt: toolResult.fetchedAt });
-        }
-        if (toolResult.comparison) comparison = toolResult.comparison;
-        if (toolResult.fetchedAt) fetchedAt = toolResult.fetchedAt;
-        source = toolResult.source === "MCP + DNSE" ? "Gemini + MCP + DNSE" : "Gemini + MCP + Finnhub";
-        functionResponses.push({ functionResponse: { name: call.name, ...(call.id ? { id: call.id } : {}), response: toolResult as unknown as Record<string, unknown> } } as GeminiPart);
+
+        contents.push({ role: "user", parts: functionResponses });
+        content = await ask();
       }
 
-      contents.push({ role: "user", parts: functionResponses });
-      content = await generateGemini(contents, apiKey, model);
+      const answer = content.parts.map((part) => part.text || "").join("\n").trim() || "Mình chưa tạo được câu trả lời. Bạn thử hỏi lại theo cách khác nhé.";
+      return NextResponse.json({ answer, source, fetchedAt, trace, ...(comparison ? { comparison } : {}) });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Trợ lý AI chưa phản hồi được.";
+      return NextResponse.json({ error: message, trace }, { status: 502 });
+    } finally {
+      await mcp.close();
     }
-
-    const answer = content.parts.map((part) => part.text || "").join("\n").trim() || "Mình chưa tạo được câu trả lời. Bạn thử hỏi lại theo cách khác nhé.";
-    return NextResponse.json({ answer, source, fetchedAt, ...(comparison ? { comparison } : {}) });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Trợ lý AI chưa phản hồi được.";
     return NextResponse.json({ error: message }, { status: 502 });

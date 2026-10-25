@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, TraceStep } from "@/lib/types";
 import { ComparisonTable } from "./ComparisonTable";
+import { ToolTrace } from "./ToolTrace";
 import { TypewriterText } from "./TypewriterText";
 
 /** Floating assistant panel plus its launcher button. Owns all chat state. */
@@ -70,13 +71,17 @@ export function ChatAssistant() {
       });
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.error || "Trợ lý chưa lấy được dữ liệu.");
+        throw Object.assign(
+          new Error(data.error || "Trợ lý chưa lấy được dữ liệu."),
+          { trace: data.trace as TraceStep[] | undefined },
+        );
       setChatMessages((messages) => [
         ...messages,
         {
           role: "assistant",
           text: data.answer,
           comparison: data.comparison,
+          trace: data.trace,
           streaming: true,
         },
       ]);
@@ -89,6 +94,7 @@ export function ChatAssistant() {
             error instanceof Error
               ? error.message
               : "Chưa gọi được API trợ lý.",
+          trace: (error as { trace?: TraceStep[] }).trace,
           streaming: true,
         },
       ]);
@@ -189,6 +195,9 @@ export function ChatAssistant() {
                   </p>
                   {message.comparison && !message.streaming && (
                     <ComparisonTable comparison={message.comparison} />
+                  )}
+                  {message.trace && !message.streaming && (
+                    <ToolTrace trace={message.trace} />
                   )}
                 </div>
               </div>
